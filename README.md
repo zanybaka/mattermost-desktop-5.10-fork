@@ -10,6 +10,8 @@ Fork adds **Activity** — a sidebar panel aggregating mentions, threads, reacti
 ![Activity panel - Reminders](example-reminders.png)
 ![Activity panel - Important threads](example-important-threads.png)
 
+**Video:** [Mattermost - My Activity](https://github.com/zanybaka/mattermost-desktop-5.10-fork/releases/download/5.10.2-activity/Mattermost.-.My.Activity.mp4)
+
 **Summary:** Activity is a sidebar panel that aggregates mentions, thread replies, reactions, DMs, GMs and reminders into a single chronological feed. It is opened from the Mattermost webapp sidebar (injected item). Native Threads and Mentions sidebar items can be hidden to avoid duplication.
 
 **Details:**
