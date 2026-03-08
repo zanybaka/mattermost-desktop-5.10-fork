@@ -1,0 +1,151 @@
+# Release workflow for fork — builds on tag push, creates GitHub Release with artifacts.
+# No signing (users may see "unidentified developer" on Mac / SmartScreen on Windows).
+#
+# Usage: git tag 5.10.2-activity && git push origin 5.10.2-activity
+
+name: release-fork
+
+on:
+  push:
+    tags:
+      - "5.10.*-activity*"
+      - "v5.10.*-activity*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to release (e.g. 5.10.2-activity)'
+        required: true
+        default: '5.10.2-activity'
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: "package.json"
+          cache: "npm"
+          cache-dependency-path: package-lock.json
+      - name: Install deps
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libxtst-dev libpng++-dev jq icnsutils graphicsmagick gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+          npm ci
+      - name: Build
+        run: |
+          mkdir -p ./build/linux
+          npm run package:linux-tar
+          ./scripts/patch_updater_yml.sh 2>/dev/null || true
+          bash -x ./scripts/cp_artifacts.sh release ./build/linux
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux
+          path: build/linux
+
+  build-windows:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: "package.json"
+          cache: "npm"
+          cache-dependency-path: package-lock.json
+      - name: Install deps
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+        shell: bash
+        run: |
+          npm i -g node-gyp
+          node-gyp install --target=$(jq -r .devDependencies.electron package.json) --dist-url="https://electronjs.org/headers"
+          npm ci --openssl_fips=''
+      - name: Build
+        env:
+          CSC_FOR_PULL_REQUEST: true
+        shell: bash
+        run: |
+          mkdir -p ./build/win
+          npm run package:windows-zip
+          ./scripts/patch_updater_yml.sh 2>/dev/null || true
+          bash -x ./scripts/cp_artifacts.sh release ./build/win
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: build/win
+
+  build-macos:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: "package.json"
+          cache: "npm"
+          cache-dependency-path: package-lock.json
+      - name: Install deps
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+        run: npm ci
+      - name: Build
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+        run: |
+          mkdir -p ./build/macos
+          npm run package:mac-unsigned
+          ./scripts/patch_updater_yml.sh 2>/dev/null || true
+          bash -x ./scripts/cp_artifacts.sh release ./build/macos
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos
+          path: build/macos
+
+  release:
+    runs-on: ubuntu-22.04
+    needs: [build-linux, build-windows, build-macos]
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          pattern: '*'
+          merge-multiple: true
+      - name: Collect files
+        run: |
+          mkdir -p ghr-dist
+          find artifacts -type f \( -name '*.zip' -o -name '*.exe' -o -name '*.dmg' -o -name '*.tar.gz' -o -name '*.AppImage' -o -name '*.deb' -o -name '*.rpm' \) -exec cp {} ghr-dist/ \;
+          ls -la ghr-dist/
+      - name: Create release notes
+        run: |
+          cat > release-notes.md << 'EOF'
+          ## Activity panel
+
+          Mattermost Desktop fork with **Activity** — a sidebar panel aggregating mentions, threads, reactions, DMs, GMs and reminders in a single feed.
+
+          ### Features
+          - Unified feed: mentions, thread replies, reactions, DMs, GMs and reminders
+          - Sidebar panel opened from the webapp sidebar
+          - Filters: Threads / Mentions, search, hide items
+          - Data from Mattermost API including reminders
+
+          ### Run without install
+          - **Windows:** Extract ZIP, run `Mattermost.exe`
+          - **macOS:** Open DMG, drag to Applications (first launch: Right-click → Open)
+          - **Linux:** Extract tar.gz or run AppImage
+          EOF
+      - name: Create Release
+        env:
+          GH_TAG: ${{ github.event.inputs.tag || github.ref_name }}
+          GH_SHA: ${{ github.sha }}
+        run: |
+          VERSION=$(echo "$GH_TAG" | sed 's/^v//')
+          TITLE="${VERSION} — Activity panel"
+          gh release create "$GH_TAG" --title "$TITLE" --target "$GH_SHA" -F release-notes.md ghr-dist/*

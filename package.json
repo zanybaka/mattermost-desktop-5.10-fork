@@ -49,6 +49,7 @@
     "package:windows-zip": "npm run build-prod && electron-builder --win zip --x64 --arm64 --publish=never",
     "package:windows-installers": "npm run build-prod-upgrade && electron-builder --win nsis --x64 --arm64 --publish=never && node scripts/cp_msi_app_update.js && electron-builder --win msi --x64 --arm64 --publish=never",
     "package:mac": "npm run build-prod && electron-builder --config.mac.provisioningProfile=./mac.provisionProfile --mac --x64 --arm64 --publish=never",
+    "package:mac-unsigned": "npm run build-prod && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac zip dmg --arm64 --publish=never -c.mac.gatekeeperAssess=false -c.mac.hardenedRuntime=false -c.mac.notarize=false -c.mac.identity=null",
     "package:mac-with-universal": "npm run package:mac -- --universal",
     "package:mas": "npm run build-prod-mas && electron-builder --mac mas --universal --publish=never",
     "package:mas-dev": "npm run build-prod-mas && electron-builder --mac mas-dev --universal --publish=never",
