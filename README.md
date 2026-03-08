@@ -44,7 +44,9 @@ Artifacts go to `release/5.10.2/`.
 
 **Manual run (test without tag):** Actions -> release-fork -> Run workflow -> enter tag (e.g. `5.10.2-activity-test`) -> Run. Builds from current branch, creates release with that tag.
 
-**Release on tag push:** `git tag 5.10.2-activity && git push origin 5.10.2-activity` - workflow runs automatically and creates a release.
+**Release on tag push:** `git tag 5.10.2-activity && git push origin 5.10.2-activity` - workflow runs automatically and creates a release.[^2]
+
+[^2]: Release notes are in `.github/workflows/release-fork.yml` (Create release notes step). Edit the heredoc there to change the text for future releases.
 
 ### Unsigned builds
 
