@@ -137,8 +137,8 @@ jobs:
           - Data from Mattermost API including reminders
 
           ### Run without install
-          - **Windows:** Extract ZIP, run `Mattermost.exe`
-          - **macOS:** Open DMG, drag to Applications (first launch: Right-click → Open)
+          - **Windows:** Extract ZIP, run Mattermost.exe (SmartScreen: More info -> Run anyway)
+          - **macOS:** Open DMG, drag to Applications. If macOS says "damaged": Right-click app -> Open, or run in Terminal: xattr -cr /Applications/Mattermost.app
           - **Linux:** Extract tar.gz or run AppImage
           EOF
       - name: Create Release
