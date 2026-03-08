@@ -3,6 +3,8 @@
 
 import type {ipcRenderer, Rectangle} from 'electron/renderer';
 
+import type {ActivityItem, ActivityPage} from 'common/activity/types';
+
 import type {CombinedConfig, LocalConfiguration, UniqueView, UniqueServer} from './config';
 import type {DownloadedItem, DownloadedItems, DownloadsMenuOpenEventPayload} from './downloads';
 import type {URLValidationResult} from './server';
@@ -52,6 +54,15 @@ declare global {
             getLastActive: () => Promise<{server: string; view: string}>;
             getOrderedServers: () => Promise<UniqueServer[]>;
             getOrderedTabsForServer: (serverId: string) => Promise<UniqueView[]>;
+            activityDemoBlur: boolean;
+            loadActivityInitial: (payload: {serverId: string; userId?: string; pageSize?: number}) => Promise<ActivityPage>;
+            loadActivityOlder: (payload: {serverId: string; userId?: string; pageSize?: number}) => Promise<ActivityPage>;
+            refreshActivity: (payload: {serverId: string; userId?: string; pageSize?: number}) => Promise<ActivityPage>;
+            searchActivityLocal: (payload: {serverId: string; query: string}) => Promise<ActivityItem[]>;
+            openActivityItem: (payload: {postId?: string; threadId?: string; channelId?: string}) => Promise<boolean>;
+            setActivityViewVisible: (isVisible: boolean) => void;
+            onSelectActivityTab: (listener: () => void) => void;
+            onCloseActivityTab: (listener: () => void) => void;
             onUpdateServers: (listener: () => void) => void;
             validateServerURL: (url: string, currentId?: string) => Promise<URLValidationResult>;
 

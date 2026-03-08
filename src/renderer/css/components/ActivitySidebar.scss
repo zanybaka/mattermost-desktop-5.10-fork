@@ -1,0 +1,479 @@
+@import '../css_variables';
+
+$webapp-sidebar-width: 380px;
+
+.ActivitySidebar {
+    position: fixed;
+    top: 40px;
+    left: $webapp-sidebar-width;
+    right: 0;
+    bottom: 0;
+    width: auto;
+    display: flex;
+    flex-direction: column;
+    background-color: #fff;
+    border-left: 1px solid rgba(61, 60, 64, 0.12);
+    z-index: 100;
+    font-family: 'Open Sans', sans-serif;
+    color: var(--center-channel-text);
+    box-shadow: -2px 0 8px rgba(0, 0, 0, 0.08);
+
+    &.darkMode {
+        background-color: #1f1f1f;
+        border-left-color: rgba(255, 255, 255, 0.08);
+        color: #dddfe4;
+        box-shadow: -2px 0 8px rgba(0, 0, 0, 0.24);
+    }
+}
+
+.ActivitySidebar__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px 8px;
+    flex-shrink: 0;
+}
+
+.ActivitySidebar__title {
+    font-size: 16px;
+    font-weight: 600;
+    margin: 0;
+    line-height: 24px;
+}
+
+.ActivitySidebar__headerActions {
+    display: flex;
+    gap: 4px;
+}
+
+.ActivitySidebar__iconBtn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: rgba(63, 67, 80, 0.56);
+    cursor: pointer;
+    padding: 0;
+    font-size: 18px;
+
+    &:hover {
+        background-color: rgba(63, 67, 80, 0.08);
+        color: rgba(63, 67, 80, 0.72);
+    }
+
+    &:disabled {
+        opacity: 0.4;
+        cursor: default;
+    }
+
+    .darkMode & {
+        color: rgba(221, 223, 228, 0.56);
+
+        &:hover {
+            background-color: rgba(221, 223, 228, 0.08);
+            color: rgba(221, 223, 228, 0.72);
+        }
+    }
+}
+
+.ActivitySidebar__search {
+    padding: 0 16px 8px;
+    flex-shrink: 0;
+}
+
+.ActivitySidebar__searchBox {
+    display: flex;
+    align-items: center;
+    background-color: rgba(63, 67, 80, 0.08);
+    border-radius: 4px;
+    padding: 0 8px;
+    height: 32px;
+    gap: 4px;
+
+    .darkMode & {
+        background-color: rgba(221, 223, 228, 0.08);
+    }
+}
+
+.ActivitySidebar__searchIcon {
+    font-size: 16px;
+    color: rgba(63, 67, 80, 0.48);
+    flex-shrink: 0;
+
+    .darkMode & {
+        color: rgba(221, 223, 228, 0.48);
+    }
+}
+
+.ActivitySidebar__searchInput {
+    flex: 1;
+    border: none;
+    background: transparent;
+    font-size: 13px;
+    color: inherit;
+    outline: none;
+    padding: 0;
+    line-height: 32px;
+    min-width: 0;
+
+    &::placeholder {
+        color: rgba(63, 67, 80, 0.48);
+    }
+
+    .darkMode & {
+        color: #dddfe4;
+
+        &::placeholder {
+            color: rgba(221, 223, 228, 0.48);
+        }
+    }
+}
+
+.ActivitySidebar__searchClear {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: transparent;
+    color: rgba(63, 67, 80, 0.48);
+    cursor: pointer;
+    padding: 0;
+    font-size: 14px;
+
+    &:hover {
+        color: rgba(63, 67, 80, 0.72);
+    }
+
+    .darkMode & {
+        color: rgba(221, 223, 228, 0.48);
+
+        &:hover {
+            color: rgba(221, 223, 228, 0.72);
+        }
+    }
+}
+
+.ActivitySidebar__searchActions {
+    display: flex;
+    gap: 6px;
+    margin-top: 6px;
+}
+
+.ActivitySidebar__searchBtn {
+    flex: 1;
+    height: 26px;
+    border: 1px solid rgba(63, 67, 80, 0.16);
+    border-radius: 4px;
+    background: transparent;
+    color: var(--button-bg);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 0 8px;
+
+    &:hover {
+        background-color: rgba(22, 109, 224, 0.08);
+    }
+
+    &:disabled {
+        opacity: 0.4;
+        cursor: default;
+    }
+
+    .darkMode & {
+        border-color: rgba(221, 223, 228, 0.16);
+        color: #5d89ea;
+
+        &:hover {
+            background-color: rgba(93, 137, 234, 0.08);
+        }
+    }
+}
+
+.ActivitySidebar__meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px 6px;
+    font-size: 11px;
+    color: rgba(63, 67, 80, 0.56);
+    flex-shrink: 0;
+
+    .darkMode & {
+        color: rgba(221, 223, 228, 0.48);
+    }
+}
+
+.ActivitySidebar__serverName {
+    font-weight: 600;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    white-space: nowrap;
+    max-width: 140px;
+}
+
+.ActivitySidebar__error {
+    padding: 6px 16px;
+    font-size: 12px;
+    color: var(--error-text);
+    background-color: rgba(210, 75, 78, 0.08);
+    flex-shrink: 0;
+}
+
+.ActivitySidebar__feed {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+
+    &--demoBlur {
+        .ActivitySidebar__itemAvatar,
+        .ActivitySidebar__itemIcon,
+        .ActivitySidebar__itemKind,
+        .ActivitySidebar__itemPreview {
+            filter: blur(4px);
+            user-select: none;
+        }
+    }
+}
+
+.ActivitySidebar__item {
+    display: flex;
+    width: 100%;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 16px;
+    border: none;
+    border-bottom: 1px solid rgba(63, 67, 80, 0.08);
+    background: transparent;
+    text-align: left;
+    cursor: pointer;
+    color: inherit;
+    transition: background-color 150ms ease;
+
+    &:hover {
+        background-color: rgba(63, 67, 80, 0.04);
+    }
+
+    &:active {
+        background-color: rgba(63, 67, 80, 0.08);
+    }
+
+    .darkMode & {
+        border-bottom-color: rgba(221, 223, 228, 0.08);
+
+        &:hover {
+            background-color: rgba(221, 223, 228, 0.04);
+        }
+
+        &:active {
+            background-color: rgba(221, 223, 228, 0.08);
+        }
+    }
+}
+
+.ActivitySidebar__itemIcon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background-color: rgba(22, 109, 224, 0.08);
+    color: var(--button-bg);
+    flex-shrink: 0;
+    font-size: 16px;
+    margin-top: 1px;
+
+    .darkMode & {
+        background-color: rgba(93, 137, 234, 0.16);
+        color: #5d89ea;
+    }
+}
+
+.ActivitySidebar__itemAvatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+    margin-top: 1px;
+    background-color: rgba(63, 67, 80, 0.08);
+
+    .darkMode & {
+        background-color: rgba(221, 223, 228, 0.08);
+    }
+}
+
+.ActivitySidebar__itemContent {
+    flex: 1;
+    min-width: 0;
+}
+
+.ActivitySidebar__itemHeader {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 2px;
+}
+
+.ActivitySidebar__itemKind {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.ActivitySidebar__itemTime {
+    font-size: 11px;
+    color: rgba(63, 67, 80, 0.56);
+    flex-shrink: 0;
+
+    .darkMode & {
+        color: rgba(221, 223, 228, 0.48);
+    }
+}
+
+.ActivitySidebar__itemMeta {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+.ActivitySidebar__itemHide {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    color: var(--error-text, #d24b4e);
+    font-size: 14px;
+    line-height: 1;
+    font-weight: 600;
+    transform: translateY(-1px);
+    opacity: 0.85;
+    transition: opacity 120ms ease, background-color 120ms ease, color 120ms ease;
+
+    &:hover {
+        opacity: 1;
+        background-color: rgba(210, 75, 78, 0.15);
+        color: var(--error-text, #d24b4e);
+    }
+
+    &:focus-visible {
+        opacity: 1;
+        outline: 2px solid rgba(210, 75, 78, 0.5);
+        outline-offset: 1px;
+    }
+
+    .darkMode & {
+        color: #e06c6c;
+
+        &:hover {
+            background-color: rgba(224, 108, 108, 0.2);
+            color: #e06c6c;
+        }
+    }
+}
+
+.ActivitySidebar__itemPreview {
+    font-size: 13px;
+    line-height: 18px;
+    color: rgba(63, 67, 80, 0.72);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+
+    .darkMode & {
+        color: rgba(221, 223, 228, 0.64);
+    }
+}
+
+.ActivitySidebar__empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 48px 16px;
+    color: rgba(63, 67, 80, 0.48);
+    font-size: 14px;
+    gap: 8px;
+
+    .darkMode & {
+        color: rgba(221, 223, 228, 0.48);
+    }
+}
+
+.ActivitySidebar__emptyIcon {
+    font-size: 32px;
+    opacity: 0.6;
+}
+
+.ActivitySidebar__loading {
+    display: flex;
+    justify-content: center;
+    padding: 16px;
+}
+
+.ActivitySidebar__loadMoreWrap {
+    display: flex;
+    justify-content: center;
+    padding: 12px 16px 20px;
+}
+
+.ActivitySidebar__loadMoreBtn {
+    height: 32px;
+    border: 1px solid rgba(63, 67, 80, 0.16);
+    border-radius: 4px;
+    background: transparent;
+    color: var(--button-bg);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 0 14px;
+
+    &:hover {
+        background-color: rgba(22, 109, 224, 0.08);
+    }
+
+    .darkMode & {
+        border-color: rgba(221, 223, 228, 0.16);
+        color: #5d89ea;
+
+        &:hover {
+            background-color: rgba(93, 137, 234, 0.08);
+        }
+    }
+}
+
+.ActivitySidebar__spinner {
+    width: 20px;
+    height: 20px;
+    border: 2px solid rgba(63, 67, 80, 0.16);
+    border-top-color: var(--button-bg);
+    border-radius: 50%;
+    animation: activitySpin 0.6s linear infinite;
+
+    .darkMode & {
+        border-color: rgba(221, 223, 228, 0.16);
+        border-top-color: #5d89ea;
+    }
+}
+
+@keyframes activitySpin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.icon-refresh.spinning {
+    animation: activitySpin 0.6s linear infinite;
+}

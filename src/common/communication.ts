@@ -59,6 +59,20 @@ export const IS_UNREAD = 'is_unread';
 export const UNREAD_RESULT = 'unread_result';
 export const UNREADS_AND_MENTIONS = 'unreads-and-mentions';
 export const SESSION_EXPIRED = 'session_expired';
+export const ACTIVITY_LOAD_INITIAL = 'activity-load-initial';
+export const ACTIVITY_GET_SNAPSHOT = 'activity-get-snapshot';
+export const ACTIVITY_LOAD_OLDER = 'activity-load-older';
+export const ACTIVITY_REFRESH = 'activity-refresh';
+export const ACTIVITY_SEARCH_LOCAL = 'activity-search-local';
+export const ACTIVITY_OPEN_ITEM = 'activity-open-item';
+export const ACTIVITY_OPEN_SIDEBAR = 'activity-open-sidebar';
+export const ACTIVITY_CACHE_STATS = 'activity-cache-stats';
+export const ACTIVITY_CACHE_CLEAR = 'activity-cache-clear';
+export const ACTIVITY_SELECT_TAB = 'activity-select-tab';
+export const ACTIVITY_SET_VISIBLE = 'activity-set-visible';
+export const ACTIVITY_SIDEBAR_ACTIVE = 'activity-sidebar-active';
+export const ACTIVITY_SIDEBAR_DEACTIVATED = 'activity-sidebar-deactivated';
+export const ACTIVITY_CLOSE_TAB = 'activity-close-tab';
 
 export const REACT_APP_INITIALIZED = 'react-app-initialized';
 

@@ -31,8 +31,9 @@ import MainWindow from 'main/windows/mainWindow';
 
 import WebContentsEventManager from './webContentEvents';
 
+import {getActivityViewBounds} from '../activitySidebarState';
 import ContextMenu from '../contextMenu';
-import {getWindowBoundaries, getLocalPreload, composeUserAgent, shouldHaveBackBar} from '../utils';
+import {getLocalPreload, composeUserAgent, shouldHaveBackBar} from '../utils';
 
 enum Status {
     LOADING,
@@ -233,7 +234,7 @@ export class MattermostBrowserView extends EventEmitter {
         this.isVisible = true;
         mainWindow.addBrowserView(this.browserView);
         mainWindow.setTopBrowserView(this.browserView);
-        this.setBounds(getWindowBoundaries(mainWindow, shouldHaveBackBar(this.view.url || '', this.currentURL)));
+        this.setBounds(getActivityViewBounds(mainWindow, shouldHaveBackBar(this.view.url || '', this.currentURL)));
         if (this.status === Status.READY) {
             this.focus();
         }
@@ -360,6 +361,25 @@ export class MattermostBrowserView extends EventEmitter {
             this.browserView.webContents.focus();
         } else {
             this.log.warn('trying to focus the browserview, but it doesn\'t yet have webcontents.');
+        }
+    };
+
+    getWebAppSidebarWidth = async () => {
+        try {
+            const width = await this.browserView.webContents.executeJavaScript(
+                '(() => { const sidebar = document.getElementById("sidebar-left"); if (!sidebar) { return 0; } const rect = sidebar.getBoundingClientRect(); return Math.round(rect.width || 0); })()',
+                true,
+            );
+
+            const numericWidth = Number(width);
+            if (!Number.isFinite(numericWidth) || numericWidth <= 0) {
+                return 0;
+            }
+
+            return numericWidth;
+        } catch (error) {
+            this.log.debug('unable to read webapp sidebar width', error);
+            return 0;
         }
     };
 
@@ -495,7 +515,7 @@ export class MattermostBrowserView extends EventEmitter {
             this.emit(LOAD_SUCCESS, this.id, loadURL);
             const mainWindow = MainWindow.get();
             if (mainWindow && this.currentURL) {
-                this.setBounds(getWindowBoundaries(mainWindow, shouldHaveBackBar(this.view.url || '', this.currentURL)));
+                this.setBounds(getActivityViewBounds(mainWindow, shouldHaveBackBar(this.view.url || '', this.currentURL)));
             }
         };
     };
@@ -517,11 +537,11 @@ export class MattermostBrowserView extends EventEmitter {
         }
 
         if (shouldHaveBackBar(this.view.url || '', parsedURL)) {
-            this.setBounds(getWindowBoundaries(mainWindow, true));
+            this.setBounds(getActivityViewBounds(mainWindow, true));
             MainWindow.sendToRenderer(TOGGLE_BACK_BUTTON, true);
             this.log.debug('show back button');
         } else {
-            this.setBounds(getWindowBoundaries(mainWindow));
+            this.setBounds(getActivityViewBounds(mainWindow, false));
             MainWindow.sendToRenderer(TOGGLE_BACK_BUTTON, false);
             this.log.debug('hide back button');
         }

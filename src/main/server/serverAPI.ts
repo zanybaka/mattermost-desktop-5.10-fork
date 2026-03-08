@@ -8,26 +8,50 @@ import {Logger} from 'common/log';
 
 const log = new Logger('serverAPI');
 
+function normalizeDomain(domain?: string) {
+    return (domain || '').trim().replace(/^\./, '').toLowerCase();
+}
+
+function cookieMatchesHost(cookieDomain: string | undefined, host: string) {
+    const normalizedCookieDomain = normalizeDomain(cookieDomain);
+    const normalizedHost = host.toLowerCase();
+    if (!normalizedCookieDomain) {
+        return false;
+    }
+    return normalizedHost === normalizedCookieDomain || normalizedHost.endsWith(`.${normalizedCookieDomain}`);
+}
+
 export async function getServerAPI(url: URL, isAuthenticated: boolean, onSuccess?: (raw: string) => void, onAbort?: () => void, onError?: (error: Error) => void) {
     if (isAuthenticated) {
-        const cookies = await session.defaultSession.cookies.get({});
+        const cookies = await session.defaultSession.cookies.get({url: url.origin});
         if (!cookies) {
-            log.error('Cannot authenticate, no cookies present');
+            const error = new Error('Cannot authenticate, no cookies present');
+            log.error(error.message);
+            onError?.(error);
             return;
         }
 
         // Filter out cookies that aren't part of our domain
-        const filteredCookies = cookies.filter((cookie) => cookie.domain && url.toString().indexOf(cookie.domain) >= 0);
+        const filteredCookies = cookies.filter((cookie) => cookieMatchesHost(cookie.domain, url.hostname));
 
         const userId = filteredCookies.find((cookie) => cookie.name === COOKIE_NAME_USER_ID);
         const csrf = filteredCookies.find((cookie) => cookie.name === COOKIE_NAME_CSRF);
         const authToken = filteredCookies.find((cookie) => cookie.name === COOKIE_NAME_AUTH_TOKEN);
 
-        if (!userId || !csrf || !authToken) {
-            // Missing cookies needed for req
-            log.error(`Cannot authenticate, required cookies for ${url.origin} not found`);
+        // For API GET requests we only need authenticated session token.
+        if (!authToken) {
+            const error = new Error(`Cannot authenticate, auth cookie for ${url.origin} not found`);
+            log.error(error.message);
+            onError?.(error);
             return;
         }
+
+        log.silly('Authenticated request cookies resolved', {
+            host: url.hostname,
+            hasUserId: Boolean(userId),
+            hasCsrf: Boolean(csrf),
+            hasAuthToken: Boolean(authToken),
+        });
     }
 
     const req = net.request({

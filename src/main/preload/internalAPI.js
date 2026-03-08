@@ -95,6 +95,14 @@ import {
     IS_DEVELOPER_MODE_ENABLED,
     METRICS_REQUEST,
     METRICS_RECEIVE,
+    ACTIVITY_LOAD_INITIAL,
+    ACTIVITY_LOAD_OLDER,
+    ACTIVITY_REFRESH,
+    ACTIVITY_SEARCH_LOCAL,
+    ACTIVITY_OPEN_ITEM,
+    ACTIVITY_SELECT_TAB,
+    ACTIVITY_SET_VISIBLE,
+    ACTIVITY_CLOSE_TAB,
 } from 'common/communication';
 
 console.log('Preload initialized');
@@ -136,6 +144,15 @@ contextBridge.exposeInMainWorld('desktop', {
     getLastActive: () => ipcRenderer.invoke(GET_LAST_ACTIVE),
     getOrderedServers: () => ipcRenderer.invoke(GET_ORDERED_SERVERS),
     getOrderedTabsForServer: (serverId) => ipcRenderer.invoke(GET_ORDERED_TABS_FOR_SERVER, serverId),
+    activityDemoBlur: ['1', 'true', 'on', 'yes'].includes((process.env.MM_DESKTOP_ACTIVITY_DEMO_BLUR || '').toLowerCase()),
+    loadActivityInitial: (payload) => ipcRenderer.invoke(ACTIVITY_LOAD_INITIAL, payload),
+    loadActivityOlder: (payload) => ipcRenderer.invoke(ACTIVITY_LOAD_OLDER, payload),
+    refreshActivity: (payload) => ipcRenderer.invoke(ACTIVITY_REFRESH, payload),
+    searchActivityLocal: (payload) => ipcRenderer.invoke(ACTIVITY_SEARCH_LOCAL, payload),
+    openActivityItem: (payload) => ipcRenderer.invoke(ACTIVITY_OPEN_ITEM, payload),
+    setActivityViewVisible: (isVisible) => ipcRenderer.send(ACTIVITY_SET_VISIBLE, isVisible),
+    onSelectActivityTab: (listener) => ipcRenderer.on(ACTIVITY_SELECT_TAB, () => listener()),
+    onCloseActivityTab: (listener) => ipcRenderer.on(ACTIVITY_CLOSE_TAB, () => listener()),
     onUpdateServers: (listener) => ipcRenderer.on(SERVERS_UPDATE, () => listener()),
     validateServerURL: (url, currentId) => ipcRenderer.invoke(VALIDATE_SERVER_URL, url, currentId),
 

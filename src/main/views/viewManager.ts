@@ -45,6 +45,7 @@ import {getFormattedPathName, parseURL} from 'common/utils/url';
 import Utils from 'common/utils/util';
 import type {MattermostView} from 'common/views/View';
 import {TAB_MESSAGING} from 'common/views/View';
+import {getActivityViewWidth} from 'main/activitySidebarState';
 import {flushCookiesStore} from 'main/app/utils';
 import DeveloperMode from 'main/developerMode';
 import {localizeMessage} from 'main/i18nManager';
@@ -68,7 +69,6 @@ export class ViewManager {
     private closedViews: Map<string, {srv: MattermostServer; view: MattermostView}>;
     private views: Map<string, MattermostBrowserView>;
     private currentView?: string;
-
     private urlViewCancel?: () => void;
 
     constructor() {
@@ -655,7 +655,13 @@ export class ViewManager {
 
         const currentView = this.getCurrentView();
         if (currentView && currentView.currentURL) {
-            const adjustedBounds = getAdjustedWindowBoundaries(newBounds.width, newBounds.height, shouldHaveBackBar(currentView.view.url, currentView.currentURL));
+            const activityViewWidth = getActivityViewWidth(newBounds.width);
+            const adjustedBounds = getAdjustedWindowBoundaries(
+                newBounds.width,
+                newBounds.height,
+                shouldHaveBackBar(currentView.view.url, currentView.currentURL),
+                newBounds.width - activityViewWidth,
+            );
             currentView.setBounds(adjustedBounds);
         }
     };

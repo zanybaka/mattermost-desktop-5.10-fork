@@ -12,6 +12,7 @@ import {injectIntl} from 'react-intl';
 import type {UniqueView, UniqueServer} from 'types/config';
 import type {DownloadedItems} from 'types/downloads';
 
+import ActivitySidebar from './ActivitySidebar';
 import DeveloperModeIndicator from './DeveloperModeIndicator';
 import DownloadsDropdownButton from './DownloadsDropdown/DownloadsDropdownButton';
 import ErrorView from './ErrorView';
@@ -57,6 +58,7 @@ type State = {
     hasDownloads: boolean;
     threeDotsIsFocused: boolean;
     developerMode: boolean;
+    showActivitySidebar: boolean;
 };
 
 type TabViewStatus = {
@@ -91,6 +93,7 @@ class MainPage extends React.PureComponent<Props, State> {
             hasDownloads: false,
             threeDotsIsFocused: false,
             developerMode: false,
+            showActivitySidebar: false,
         };
     }
 
@@ -157,6 +160,14 @@ class MainPage extends React.PureComponent<Props, State> {
         await this.updateServers();
 
         window.desktop.onUpdateServers(this.updateServers);
+
+        window.desktop.onSelectActivityTab(() => {
+            this.setState({showActivitySidebar: true});
+        });
+
+        window.desktop.onCloseActivityTab(() => {
+            this.setState({showActivitySidebar: false});
+        });
 
         // set page on retry
         window.desktop.onLoadRetry((viewId, retry, err, loadUrl) => {
@@ -381,6 +392,10 @@ class MainPage extends React.PureComponent<Props, State> {
         });
     };
 
+    closeActivitySidebar = () => {
+        this.setState({showActivitySidebar: false});
+    };
+
     render() {
         const {intl} = this.props;
         let currentTabs: UniqueView[] = [];
@@ -552,6 +567,13 @@ class MainPage extends React.PureComponent<Props, State> {
                 <Container fluid={true}>
                     {topRow}
                     {viewsRow}
+                    <ActivitySidebar
+                        show={this.state.showActivitySidebar}
+                        onClose={this.closeActivitySidebar}
+                        serverName={activeServer?.name}
+                        serverId={this.state.activeServerId}
+                        darkMode={this.props.darkMode}
+                    />
                 </Container>
             </div>
         );

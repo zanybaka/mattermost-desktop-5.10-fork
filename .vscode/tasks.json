@@ -4,22 +4,27 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "Build sources",
+            "label": "Run",
+            "type": "npm",
+            "script": "start",
+            "options": {
+                "env": {
+                    "MM_DESKTOP_ACTIVITY_SOURCE_MENTION_REACTION": "true",
+                    "MM_DESKTOP_ACTIVITY_SOURCE_THREAD_REPLY": "true",
+                    "MM_DESKTOP_ACTIVITY_SOURCE_DM": "true",
+                    "MM_DESKTOP_ACTIVITY_SOURCE_GM": "true",
+                    "MM_DESKTOP_ACTIVITY_SOURCE_REMINDER": "true",
+                    "MM_DESKTOP_ACTIVITY_API_DEBUG": "false",
+                    "MM_DESKTOP_ACTIVITY_DEMO_BLUR": "false"
+                }
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "Build",
             "type": "npm",
             "script": "build",
             "problemMatcher": []
         },
-        {
-            "label": "prepare-e2e",
-            "type": "shell",
-            "command": "npm run build; npm run build-robotjs; npm run test:e2e:build",
-            "problemMatcher": []
-        },
-        {
-            "label": "prepare-e2e-performance",
-            "type": "shell",
-            "command": "cross-env NODE_ENV=test PERFORMANCE=true npm run build; npm run build-robotjs; npm run test:e2e:build-performance",
-            "problemMatcher": []
-        }
     ]
 }

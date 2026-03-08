@@ -55,6 +55,7 @@ export class CallsWidgetWindow {
     private mainView?: MattermostBrowserView;
     private options?: CallsWidgetWindowConfig;
     private missingScreensharePermissions?: boolean;
+    private closeInFlight?: Promise<void>;
 
     private popOut?: BrowserWindow;
     private boundsErr: Rectangle = {
@@ -184,6 +185,9 @@ export class CallsWidgetWindow {
 
     private close = async () => {
         log.debug('close');
+        if (this.closeInFlight) {
+            return this.closeInFlight;
+        }
         if (!this.win) {
             return Promise.resolve();
         }
@@ -191,15 +195,17 @@ export class CallsWidgetWindow {
             return Promise.resolve();
         }
 
-        return new Promise<void>((resolve) => {
+        this.closeInFlight = new Promise<void>((resolve) => {
             if (!this.win) {
                 resolve();
                 return;
             }
-            this.win?.on('closed', resolve);
+            this.win.once('closed', resolve);
             performanceMonitor.unregisterView(this.win.webContents.id);
-            this.win?.close();
+            this.win.close();
         });
+
+        return this.closeInFlight;
     };
 
     private setBounds(bounds: Rectangle) {
@@ -224,6 +230,7 @@ export class CallsWidgetWindow {
 
     private onClosed = () => {
         ipcMain.emit(UPDATE_SHORTCUT_MENU);
+        this.closeInFlight = undefined;
         delete this.win;
         delete this.mainView;
         delete this.options;

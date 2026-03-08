@@ -27,3 +27,16 @@ fastlane/report.xml
 *.tsbuildinfo
 
 .eslintcache
+/.cursor/
+/AGENTS.md
+/BACKLOG.md
+CODE-*.md
+DATA-*.md
+INIT-*.md
+/docs/prd.md
+SEC-*.md
+TEST-*.md
+/docs/techspec.md
+/ADR/
+/docs/
+/tasks/

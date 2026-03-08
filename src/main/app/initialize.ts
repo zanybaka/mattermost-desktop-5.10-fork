@@ -30,6 +30,17 @@ import {
     GET_APP_INFO,
     SHOW_SETTINGS_WINDOW,
     DEVELOPER_MODE_UPDATED,
+    ACTIVITY_LOAD_INITIAL,
+    ACTIVITY_GET_SNAPSHOT,
+    ACTIVITY_LOAD_OLDER,
+    ACTIVITY_REFRESH,
+    ACTIVITY_SEARCH_LOCAL,
+    ACTIVITY_OPEN_ITEM,
+    ACTIVITY_CACHE_STATS,
+    ACTIVITY_CACHE_CLEAR,
+    ACTIVITY_OPEN_SIDEBAR,
+    ACTIVITY_SET_VISIBLE,
+    ACTIVITY_SIDEBAR_DEACTIVATED,
 } from 'common/communication';
 import Config from 'common/config';
 import {Logger} from 'common/log';
@@ -58,6 +69,19 @@ import UserActivityMonitor from 'main/UserActivityMonitor';
 import ViewManager from 'main/views/viewManager';
 import MainWindow from 'main/windows/mainWindow';
 
+import {
+    handleActivityLoadInitial,
+    handleActivityGetSnapshot,
+    handleActivityLoadOlder,
+    handleActivityRefresh,
+    handleActivitySearchLocal,
+    handleActivityOpenItem,
+    handleActivityCacheStats,
+    handleActivityCacheClear,
+    handleActivityOpenSidebar,
+    handleActivitySetVisible,
+    handleActivitySidebarDeactivated,
+} from './activityIntercom';
 import {
     handleAppBeforeQuit,
     handleAppBrowserWindowCreated,
@@ -106,6 +130,9 @@ import {protocols} from '../../../electron-builder.json';
 export const mainProtocol = protocols?.[0]?.schemes?.[0];
 
 const log = new Logger('App.Initialize');
+// Temporary broad matcher for activity endpoint discovery across server variants.
+const ACTIVITY_API_DEBUG_MATCH = /\/api\/v4\/.*(mentions|reactions|threads|reminders|unread|posts\/search|notifications|channels\/[^/]+\/posts)/i;
+const ENABLE_ACTIVITY_API_DEBUG = ['1', 'true', 'on', 'yes'].includes((process.env.MM_DESKTOP_ACTIVITY_API_DEBUG || '').toLowerCase());
 
 /**
  * Main entry point for the application, ensures that everything initializes in the proper order
@@ -282,6 +309,17 @@ function initializeInterCommunicationEventListeners() {
     ipcMain.on(DOUBLE_CLICK_ON_WINDOW, handleDoubleClick);
 
     ipcMain.on(TOGGLE_SECURE_INPUT, handleToggleSecureInput);
+    ipcMain.handle(ACTIVITY_LOAD_INITIAL, handleActivityLoadInitial);
+    ipcMain.handle(ACTIVITY_GET_SNAPSHOT, handleActivityGetSnapshot);
+    ipcMain.handle(ACTIVITY_LOAD_OLDER, handleActivityLoadOlder);
+    ipcMain.handle(ACTIVITY_REFRESH, handleActivityRefresh);
+    ipcMain.handle(ACTIVITY_SEARCH_LOCAL, handleActivitySearchLocal);
+    ipcMain.handle(ACTIVITY_OPEN_ITEM, handleActivityOpenItem);
+    ipcMain.handle(ACTIVITY_CACHE_STATS, handleActivityCacheStats);
+    ipcMain.handle(ACTIVITY_CACHE_CLEAR, handleActivityCacheClear);
+    ipcMain.on(ACTIVITY_OPEN_SIDEBAR, handleActivityOpenSidebar);
+    ipcMain.on(ACTIVITY_SET_VISIBLE, handleActivitySetVisible);
+    ipcMain.on(ACTIVITY_SIDEBAR_DEACTIVATED, handleActivitySidebarDeactivated);
 
     if (process.env.NODE_ENV === 'test') {
         ipcMain.on(SHOW_SETTINGS_WINDOW, handleShowSettingsModal);
@@ -317,6 +355,18 @@ async function initializeAfterAppReady() {
 
     app.setAppUserModelId('Mattermost.Desktop'); // Use explicit AppUserModelID
     const defaultSession = session.defaultSession;
+    if (ENABLE_ACTIVITY_API_DEBUG) {
+        defaultSession.webRequest.onCompleted((details) => {
+            if (ACTIVITY_API_DEBUG_MATCH.test(details.url)) {
+                log.info('[ActivityAPIDebug][network]', {
+                    method: details.method,
+                    statusCode: details.statusCode,
+                    resourceType: details.resourceType,
+                    url: details.url,
+                });
+            }
+        });
+    }
     defaultSession.webRequest.onHeadersReceived((details, callback) => {
         const url = parseURL(details.url);
         if (url?.protocol === 'mattermost-desktop:' && url?.pathname.endsWith('html')) {
