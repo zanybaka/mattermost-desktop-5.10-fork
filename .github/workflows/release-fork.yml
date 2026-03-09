@@ -1,15 +1,11 @@
-# Release workflow for fork — builds on tag push, creates GitHub Release with artifacts.
+# Release workflow for fork — manual run only, creates GitHub Release with artifacts.
 # No signing (users may see "unidentified developer" on Mac / SmartScreen on Windows).
 #
-# Usage: git tag 5.10.2-activity && git push origin 5.10.2-activity
+# Usage: Actions → release-fork → Run workflow, enter tag (e.g. 5.10.2-activity)
 
 name: release-fork
 
 on:
-  push:
-    tags:
-      - "5.10.*-activity*"
-      - "v5.10.*-activity*"
   workflow_dispatch:
     inputs:
       tag:
