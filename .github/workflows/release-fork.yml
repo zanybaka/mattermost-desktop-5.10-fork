@@ -135,7 +135,9 @@ jobs:
 
           ### Run without install
           - **Windows:** Extract ZIP, run Mattermost.exe (SmartScreen: More info -> Run anyway)
-          - **macOS:** Open DMG, drag Mattermost.app to Applications. If macOS says "damaged": Right-click app -> Open, or run: xattr -cr /Applications/Mattermost.app
+          - **macOS:** Open DMG, drag Mattermost.app to Applications.
+  - If "damaged": Right-click app -> Open, or run: xattr -cr /Applications/Mattermost.app
+  - If "Apple could not verify ... is free of malware": System Settings -> Privacy & Security -> Open Anyway
           - **Linux:** Extract tar.gz, run Mattermost
           EOF
       - name: Create Release

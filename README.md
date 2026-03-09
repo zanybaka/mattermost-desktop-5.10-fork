@@ -50,6 +50,8 @@ Artifacts go to `release/5.10.2/`.
 
 ### Unsigned builds
 
-- **macOS:** First launch: Right-click -> Open (Gatekeeper blocks unsigned apps by default). If macOS says the app is "damaged", run in Terminal: `xattr -cr /path/to/Mattermost.app` to remove quarantine, or use Right-click -> Open.
+- **macOS:** First launch: Right-click -> Open (Gatekeeper blocks unsigned apps by default).
+  - If "damaged": Right-click app -> Open, or run: `xattr -cr /path/to/Mattermost.app`
+  - If "Not Opened: Apple could not verify ... is free of malware": System Settings -> Privacy & Security -> Open Anyway
 - **Windows:** SmartScreen may warn - "More info" -> "Run anyway".
 - **Linux:** No restrictions.
