@@ -2,8 +2,9 @@ name: nightly-builds
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: 0 4 * * 0-5
+  # schedule disabled
+  # schedule:
+  #   - cron: 0 4 * * 0-5
 
 jobs:
   tag-nightly-build:
