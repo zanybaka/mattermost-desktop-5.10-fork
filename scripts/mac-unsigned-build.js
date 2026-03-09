@@ -10,12 +10,8 @@ const fs = require('fs');
 const path = require('path');
 
 const projectDir = process.cwd();
-const pkg = require(path.join(projectDir, 'package.json'));
-const version = pkg.version;
-const appBundleName = `Mattermost.${version}-a.app`;
 const appOutDir = path.join(projectDir, 'release', 'mac-arm64');
 const appPath = path.join(appOutDir, 'Mattermost.app');
-const appPathRenamed = path.join(appOutDir, appBundleName);
 const entitlements = path.join(projectDir, 'resources', 'mac', 'entitlements.mac.inherit.plist');
 
 function run(cmd, args, opts = {}) {
@@ -76,14 +72,10 @@ run('codesign', [
 run('xattr', ['-cr', appPath]);
 run('codesign', ['--sign', '-', '--force', '--timestamp', '--entitlements', entitlements, appPath]);
 
-// Step 4: Rename app bundle for distribution
-console.log('Renaming to', appBundleName, '...');
-fs.renameSync(appPath, appPathRenamed);
-
-// Step 5: Package zip and dmg from prepackaged app
+// Step 4: Package zip and dmg from prepackaged app
 console.log('Creating zip and dmg...');
 run('npx', [
-    'electron-builder', '--prepackaged', appPathRenamed, '--mac', 'zip', 'dmg', '--arm64', '--publish=never',
+    'electron-builder', '--prepackaged', appPath, '--mac', 'zip', 'dmg', '--arm64', '--publish=never',
     '-c.mac.gatekeeperAssess=false', '-c.mac.hardenedRuntime=false',
     '-c.mac.notarize=false', '-c.mac.identity=-',
 ], {

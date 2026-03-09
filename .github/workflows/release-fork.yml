@@ -41,7 +41,7 @@ jobs:
       - name: Build
         run: |
           mkdir -p ./build/linux
-          npm run package:linux-tar-fork
+          npm run package:linux-tar
           ./scripts/patch_updater_yml.sh 2>/dev/null || true
           bash -x ./scripts/cp_artifacts.sh release ./build/linux
       - uses: actions/upload-artifact@v4
@@ -72,7 +72,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p ./build/win
-          npm run package:windows-zip-fork
+          npm run package:windows-zip
           ./scripts/patch_updater_yml.sh 2>/dev/null || true
           bash -x ./scripts/cp_artifacts.sh release ./build/win
       - uses: actions/upload-artifact@v4
@@ -138,9 +138,9 @@ jobs:
           - Data from Mattermost API including reminders
 
           ### Run without install
-          - **Windows:** Extract ZIP, run Mattermost.${VERSION}-a.exe (SmartScreen: More info -> Run anyway)
-          - **macOS:** Open DMG, drag Mattermost.${VERSION}-a.app to Applications. If macOS says "damaged": Right-click app -> Open, or run: xattr -cr /Applications/Mattermost.*.app
-          - **Linux:** Extract tar.gz, run Mattermost.${VERSION}-a
+          - **Windows:** Extract ZIP, run Mattermost.exe (SmartScreen: More info -> Run anyway)
+          - **macOS:** Open DMG, drag Mattermost.app to Applications. If macOS says "damaged": Right-click app -> Open, or run: xattr -cr /Applications/Mattermost.app
+          - **Linux:** Extract tar.gz, run Mattermost
           EOF
       - name: Create Release
         env:
