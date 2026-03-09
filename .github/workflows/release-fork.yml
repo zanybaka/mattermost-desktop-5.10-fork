@@ -41,7 +41,7 @@ jobs:
       - name: Build
         run: |
           mkdir -p ./build/linux
-          npm run package:linux-tar
+          npm run package:linux-tar-fork
           ./scripts/patch_updater_yml.sh 2>/dev/null || true
           bash -x ./scripts/cp_artifacts.sh release ./build/linux
       - uses: actions/upload-artifact@v4
@@ -72,7 +72,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p ./build/win
-          npm run package:windows-zip
+          npm run package:windows-zip-fork
           ./scripts/patch_updater_yml.sh 2>/dev/null || true
           bash -x ./scripts/cp_artifacts.sh release ./build/win
       - uses: actions/upload-artifact@v4
@@ -125,7 +125,8 @@ jobs:
           ls -la ghr-dist/
       - name: Create release notes
         run: |
-          cat > release-notes.md << 'EOF'
+          VERSION=$(jq -r .version package.json)
+          cat > release-notes.md << EOF
           ## Activity panel
 
           Mattermost Desktop fork with **Activity** — a sidebar panel aggregating mentions, threads, reactions, DMs, GMs and reminders in a single feed.
@@ -137,9 +138,9 @@ jobs:
           - Data from Mattermost API including reminders
 
           ### Run without install
-          - **Windows:** Extract ZIP, run Mattermost.exe (SmartScreen: More info -> Run anyway)
-          - **macOS:** Open DMG, drag to Applications. If macOS says "damaged": Right-click app -> Open, or run in Terminal: xattr -cr /Applications/Mattermost.app
-          - **Linux:** Extract tar.gz or run AppImage
+          - **Windows:** Extract ZIP, run Mattermost.${VERSION}-a.exe (SmartScreen: More info -> Run anyway)
+          - **macOS:** Open DMG, drag Mattermost.${VERSION}-a.app to Applications. If macOS says "damaged": Right-click app -> Open, or run: xattr -cr /Applications/Mattermost.*.app
+          - **Linux:** Extract tar.gz, run Mattermost.${VERSION}-a
           EOF
       - name: Create Release
         env:
