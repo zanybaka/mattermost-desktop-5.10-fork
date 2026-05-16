@@ -114,6 +114,39 @@ describe('activity adapters', () => {
         expect(result.items[0].postId).toBe('p1');
     });
 
+    test('mentions adapter uses create_at over update_at for event time', async () => {
+        const mentionWithEditedTimestamp = async (_serverId: string, endpoint: string) => {
+            if (endpoint.includes('/channels/c1/posts/unread')) {
+                return {
+                    ok: true,
+                    data: {
+                        order: ['p1'],
+                        posts: {
+                            p1: {
+                                id: 'p1',
+                                update_at: 200,
+                                create_at: 100,
+                                message: 'mention text',
+                                channel_id: 'c1',
+                                root_id: 'r1',
+                                user_id: 'user-1',
+                            },
+                        },
+                    },
+                };
+            }
+            return mockAPI(endpoint);
+        };
+        jest.mocked(fetchServerJSON).mockImplementation(mentionWithEditedTimestamp);
+        jest.mocked(fetchServerJSONCached).mockImplementation(mentionWithEditedTimestamp);
+
+        const result = await new MentionsAdapter().fetch({
+            ...defaultParams,
+            userId: 'target-user-create-ts',
+        });
+        expect(result.items[0].eventTs).toBe(100);
+    });
+
     test('threads adapter maps thread payloads', async () => {
         jest.mocked(fetchServerJSON).mockResolvedValue({
             ok: true,
@@ -131,6 +164,27 @@ describe('activity adapters', () => {
         const result = await new ThreadsAdapter().fetch(defaultParams);
         expect(result.items[0].eventKind).toBe('thread_reply');
         expect(result.items[0].threadId).toBe('t1');
+    });
+
+    test('threads adapter does not use last_viewed_at as event time', async () => {
+        jest.mocked(fetchServerJSON).mockResolvedValue({
+            ok: true,
+            data: {
+                threads: [{
+                    id: 't1',
+                    post_id: 'p1',
+                    channel_id: 'c1',
+                    last_reply_at: 0,
+                    last_viewed_at: 200,
+                    post: {
+                        create_at: 100,
+                    },
+                }],
+            },
+        });
+
+        const result = await new ThreadsAdapter().fetch(defaultParams);
+        expect(result.items[0].eventTs).toBe(100);
     });
 
     test('reactions adapter maps reactions', async () => {

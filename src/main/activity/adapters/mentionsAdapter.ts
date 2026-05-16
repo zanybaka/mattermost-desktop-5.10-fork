@@ -86,7 +86,7 @@ function extractMentionPreview(post: Record<string, unknown>): string {
 
 function normalizeMention(serverId: string, userId: string, post: Record<string, unknown>, actorName = '', channelName = ''): ActivityItem {
     const postId = String(post.id || '');
-    const updateAt = Number(post.update_at || post.create_at || Date.now());
+    const eventTs = Number(post.create_at || post.update_at || Date.now());
     const previewText = extractMentionPreview(post);
     const channelId = String(post.channel_id || '');
     const rootId = String(post.root_id || '');
@@ -98,7 +98,7 @@ function normalizeMention(serverId: string, userId: string, post: Record<string,
         eventKind: 'mention',
         serverId,
         targetUserId: userId,
-        eventTs: updateAt,
+        eventTs,
         previewText,
         postId,
         channelId: channelId || undefined,

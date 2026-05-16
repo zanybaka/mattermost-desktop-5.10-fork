@@ -129,6 +129,20 @@ function extractThreadChannelId(thread: Record<string, unknown>): string {
     return '';
 }
 
+function extractThreadEventTs(thread: Record<string, unknown>): number {
+    const postObject = getObject(thread.post);
+    const candidates = [
+        Number(thread.last_reply_at || 0),
+        Number(postObject?.update_at || 0),
+        Number(postObject?.create_at || 0),
+        Number(thread.update_at || 0),
+        Number(thread.create_at || 0),
+    ];
+
+    const resolved = candidates.find((value) => Number.isFinite(value) && value > 0);
+    return resolved || Date.now();
+}
+
 function normalizeThreadReply(
     serverId: string,
     userId: string,
@@ -139,7 +153,7 @@ function normalizeThreadReply(
     const postId = String(thread.post_id || thread.id || '');
     const channelId = extractThreadChannelId(thread);
     const rootId = String(thread.id || thread.post_id || '');
-    const updateAt = Number(thread.last_reply_at || thread.last_viewed_at || Date.now());
+    const eventTs = extractThreadEventTs(thread);
     const snippet = extractThreadSnippet(thread);
     const actorUserId = extractThreadActorUserId(thread);
 
@@ -148,7 +162,7 @@ function normalizeThreadReply(
         eventKind: 'thread_reply',
         serverId,
         targetUserId: userId,
-        eventTs: updateAt,
+        eventTs,
         previewText: snippet,
         postId: postId || undefined,
         channelId: channelId || undefined,
