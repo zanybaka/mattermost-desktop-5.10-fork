@@ -7,11 +7,12 @@ import {ReactionsAdapter} from './reactionsAdapter';
 import {RemindersAdapter} from './remindersAdapter';
 import {ThreadsAdapter} from './threadsAdapter';
 
-import {fetchServerJSON, fetchServerJSONCached} from '../activityAPI';
+import {fetchServerJSON, fetchServerJSONCached, postServerJSON} from '../activityAPI';
 
 jest.mock('../activityAPI', () => ({
     fetchServerJSON: jest.fn(),
     fetchServerJSONCached: jest.fn(),
+    postServerJSON: jest.fn(),
     getUserAvatarURL: jest.fn(() => undefined),
     getEmojiImageURL: jest.fn(() => undefined),
 }));
@@ -72,6 +73,15 @@ describe('activity adapters', () => {
         if (endpoint === '/api/v4/users/actor') {
             return {ok: true, data: {id: 'actor', username: 'actor'}};
         }
+        if (endpoint === '/api/v4/users/user-1') {
+            return {ok: true, data: {id: 'user-1', username: 'user-1'}};
+        }
+        if (endpoint === '/api/v4/users/target-user') {
+            return {ok: true, data: {id: 'target-user', username: 'target-user'}};
+        }
+        if (endpoint === '/api/v4/users/target-user-create-ts') {
+            return {ok: true, data: {id: 'target-user-create-ts', username: 'target-user-create-ts'}};
+        }
         if (endpoint.includes('/emoji/name/')) {
             return {ok: false, error: 'not found'};
         }
@@ -99,10 +109,35 @@ describe('activity adapters', () => {
         return {ok: true, data: []};
     };
 
+    const mockPostSearch = (postOverrides: Record<string, unknown> = {}) => ({
+        ok: true,
+        data: {
+            order: ['p1'],
+            posts: {
+                p1: {
+                    id: 'p1',
+                    update_at: 10,
+                    create_at: 10,
+                    message: 'mention text',
+                    channel_id: 'c1',
+                    root_id: 'r1',
+                    user_id: 'actor',
+                    ...postOverrides,
+                },
+            },
+        },
+    });
+
     beforeEach(() => {
         jest.resetAllMocks();
         jest.mocked(fetchServerJSON).mockImplementation(async (_serverId: string, endpoint: string) => mockAPI(endpoint));
         jest.mocked(fetchServerJSONCached).mockImplementation(async (_serverId: string, endpoint: string) => mockAPI(endpoint));
+        jest.mocked(postServerJSON).mockImplementation(async (_serverId: string, endpoint: string) => {
+            if (endpoint === '/api/v4/posts/search') {
+                return mockPostSearch();
+            }
+            return {ok: true, data: {order: [], posts: {}}};
+        });
     });
 
     test('mentions adapter normalizes post payloads', async () => {
@@ -115,36 +150,54 @@ describe('activity adapters', () => {
     });
 
     test('mentions adapter uses create_at over update_at for event time', async () => {
-        const mentionWithEditedTimestamp = async (_serverId: string, endpoint: string) => {
-            if (endpoint.includes('/channels/c1/posts/unread')) {
-                return {
-                    ok: true,
-                    data: {
-                        order: ['p1'],
-                        posts: {
-                            p1: {
-                                id: 'p1',
-                                update_at: 200,
-                                create_at: 100,
-                                message: 'mention text',
-                                channel_id: 'c1',
-                                root_id: 'r1',
-                                user_id: 'user-1',
-                            },
-                        },
-                    },
-                };
+        jest.mocked(postServerJSON).mockImplementation(async (_serverId: string, endpoint: string) => {
+            if (endpoint === '/api/v4/posts/search') {
+                return mockPostSearch({
+                    update_at: 200,
+                    create_at: 100,
+                });
             }
-            return mockAPI(endpoint);
-        };
-        jest.mocked(fetchServerJSON).mockImplementation(mentionWithEditedTimestamp);
-        jest.mocked(fetchServerJSONCached).mockImplementation(mentionWithEditedTimestamp);
+            return {ok: true, data: {order: [], posts: {}}};
+        });
 
         const result = await new MentionsAdapter().fetch({
             ...defaultParams,
             userId: 'target-user-create-ts',
         });
         expect(result.items[0].eventTs).toBe(100);
+    });
+
+    test('mentions adapter fallback includes enabled channel-wide mention keys', async () => {
+        jest.mocked(fetchServerJSONCached).mockImplementation(async (_serverId: string, endpoint: string) => {
+            if (endpoint === '/api/v4/users/target-user') {
+                return {
+                    ok: true,
+                    data: {
+                        id: 'target-user',
+                        username: 'target-user',
+                        notify_props: {channel: 'true'},
+                    },
+                };
+            }
+            return mockAPI(endpoint);
+        });
+        jest.mocked(postServerJSON).mockImplementation(async (_serverId: string, _endpoint: string, body: unknown) => {
+            const terms = String((body as Record<string, unknown>).terms || '');
+            if (terms === '"@channel"') {
+                return mockPostSearch({message: '@channel'});
+            }
+            return {ok: true, data: {order: [], posts: {}}};
+        });
+
+        const result = await new MentionsAdapter().fetch({
+            ...defaultParams,
+            userId: 'target-user',
+        });
+
+        expect(result.items[0].previewText).toBe('@channel');
+        expect(jest.mocked(postServerJSON).mock.calls.some((call) => (
+            (call[2] as Record<string, unknown>).terms === '"@channel"'
+        ))).toBe(true);
     });
 
     test('threads adapter maps thread payloads', async () => {

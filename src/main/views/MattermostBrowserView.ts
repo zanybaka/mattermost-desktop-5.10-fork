@@ -133,6 +133,53 @@ export class MattermostBrowserView extends EventEmitter {
         return this.browserView.webContents.id;
     }
 
+    requestJSON = async (url: string, method: 'GET' | 'POST' = 'GET', body?: unknown) => {
+        const options = {
+            method,
+            credentials: 'include',
+            cache: 'no-store',
+            headers: method === 'POST' ? {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            } : undefined,
+            body: method === 'POST' ? JSON.stringify(body) : undefined,
+        };
+        const result = await this.browserView.webContents.executeJavaScript(
+            `fetch(${JSON.stringify(url)}, ${JSON.stringify(options)})
+                .then(async (response) => ({
+                    ok: response.ok,
+                    status: response.status,
+                    text: await response.text(),
+                }))
+                .catch((error) => ({
+                    ok: false,
+                    status: 0,
+                    text: '',
+                    error: error instanceof Error ? error.message : String(error),
+                }))`,
+            true,
+        ) as {ok: boolean; status: number; text: string; error?: string};
+
+        if (!result.ok) {
+            return {
+                ok: false,
+                error: result.error || `request failed with status ${result.status}`,
+            };
+        }
+
+        try {
+            return {
+                ok: true,
+                data: JSON.parse(result.text),
+            };
+        } catch {
+            return {
+                ok: false,
+                error: 'failed to parse response',
+            };
+        }
+    };
+
     onLogin = (loggedIn: boolean) => {
         if (this.isLoggedIn === loggedIn) {
             return;

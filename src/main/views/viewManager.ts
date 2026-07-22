@@ -133,6 +133,14 @@ export class ViewManager {
         return [...this.views.values()].find((view) => view.webContentsId === webContentsId);
     };
 
+    getMessagingViewForServer = (serverId: string) => {
+        return [...this.views.values()].find((view) => (
+            view.view.server.id === serverId &&
+            view.view.type === TAB_MESSAGING &&
+            !view.isDestroyed()
+        ));
+    };
+
     isViewClosed = (viewId: string) => {
         return this.closedViews.has(viewId);
     };

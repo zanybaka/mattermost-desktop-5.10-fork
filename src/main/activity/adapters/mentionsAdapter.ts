@@ -4,16 +4,16 @@
 import type {ActivityItem} from 'common/activity/types';
 
 import type {ActivitySourceAdapter, AdapterFetchParams, AdapterFetchResult} from './types';
-import {getUnreadActivitySnapshot} from './unreadActivitySnapshot';
 
+import {fetchServerJSON, fetchServerJSONCached, getUserAvatarURL, postServerJSON} from '../activityAPI';
 import {getCurrentUserUsername, replaceMentionUsernamesWithDisplayNames} from '../mentionDisplay';
-import {fetchServerJSONCached, getUserAvatarURL} from '../activityAPI';
 
 type UserRecord = {
     id: string;
     username?: string;
     first_name?: string;
     last_name?: string;
+    notify_props?: Record<string, string>;
 };
 
 type ChannelRecord = {
@@ -21,6 +21,11 @@ type ChannelRecord = {
     display_name?: string;
     name?: string;
     type?: string;
+};
+
+type MentionSearchOptions = {
+    useSearchMentions: boolean;
+    terms: string;
 };
 
 function formatUserDisplayName(user?: UserRecord): string {
@@ -40,6 +45,182 @@ function formatChannelDisplayName(channel?: ChannelRecord): string {
 
 function getString(value: unknown): string {
     return typeof value === 'string' ? value : '';
+}
+
+function getPostsFromPayload(payload: unknown): Array<Record<string, unknown>> {
+    if (!payload || typeof payload !== 'object') {
+        return [];
+    }
+
+    if (Array.isArray(payload)) {
+        return payload.filter((post): post is Record<string, unknown> => Boolean(post && typeof post === 'object'));
+    }
+
+    const typed = payload as Record<string, unknown>;
+    const order = Array.isArray(typed.order) ? typed.order.map(String) : [];
+    const posts = (typed.posts || {}) as Record<string, unknown>;
+    if (!order.length) {
+        return [];
+    }
+
+    return order.
+        map((id) => posts[id]).
+        filter((post): post is Record<string, unknown> => Boolean(post && typeof post === 'object'));
+}
+
+function buildMentionSearchTerms(user: UserRecord): string {
+    const keys: string[] = [];
+    const username = (user.username || '').trim();
+    if (username) {
+        keys.push(`@${username}`);
+    }
+
+    const notifyProps = user.notify_props || {};
+    if (notifyProps.first_name === 'true' && user.first_name?.trim()) {
+        keys.push(user.first_name.trim());
+    }
+
+    const mentionKeys = (notifyProps.mention_keys || '').
+        split(',').
+        map((key) => key.trim()).
+        filter(Boolean);
+    for (const key of mentionKeys) {
+        const normalized = key.toLowerCase();
+        if (normalized === '@channel' || normalized === '@all' || normalized === '@here' ||
+            normalized === 'channel' || normalized === 'all' || normalized === 'here') {
+            continue;
+        }
+        keys.push(key.startsWith('@') ? key : `@${key}`);
+    }
+
+    const uniqueKeys = Array.from(new Set(keys));
+    return uniqueKeys.map((key) => `"${key}"`).join(' ');
+}
+
+async function searchFallbackMentionPosts(
+    params: AdapterFetchParams,
+    user: UserRecord,
+): Promise<{posts: Array<Record<string, unknown>>; error?: string}> {
+    const personalTerms = buildMentionSearchTerms(user);
+    const queries = [
+        personalTerms,
+        ...(user.notify_props?.channel === 'true' ? ['"@channel"', '"@all"', '"@here"'] : []),
+    ].filter(Boolean);
+    const postsById = new Map<string, Record<string, unknown>>();
+    const results = await Promise.all(queries.map((terms) => (
+        searchMentionPosts(params, {useSearchMentions: false, terms})
+    )));
+    results.forEach((result) => {
+        result.posts.forEach((post) => {
+            const postId = String(post.id || '');
+            if (postId) {
+                postsById.set(postId, post);
+            }
+        });
+    });
+
+    const posts = Array.from(postsById.values());
+    return {
+        posts,
+        error: posts.length ? undefined : results.find((result) => result.error)?.error,
+    };
+}
+
+async function getTeamIds(serverId: string): Promise<string[]> {
+    const response = await fetchServerJSON(serverId, '/api/v4/users/me/teams');
+    if (!response.ok || !Array.isArray(response.data)) {
+        return [];
+    }
+
+    return response.data.
+        filter((team): team is Record<string, unknown> => Boolean(team && typeof team === 'object')).
+        map((team) => String(team.id || '')).
+        filter(Boolean);
+}
+
+function buildSearchBody(params: AdapterFetchParams, options: MentionSearchOptions) {
+    const perPage = Math.max(10, Math.min(params.pageSize, 100));
+    const body: Record<string, unknown> = {
+        terms: options.terms,
+        is_or_search: true,
+        include_deleted_channels: true,
+        time_zone_offset: -new Date().getTimezoneOffset() * 60,
+        page: params.page,
+        per_page: perPage,
+    };
+    if (options.useSearchMentions) {
+        body.search_mentions = true;
+    }
+    return body;
+}
+
+async function searchMentionPosts(
+    params: AdapterFetchParams,
+    options: MentionSearchOptions,
+): Promise<{posts: Array<Record<string, unknown>>; error?: string}> {
+    const body = buildSearchBody(params, options);
+    const globalResponse = await postServerJSON(params.serverId, '/api/v4/posts/search', body);
+    if (globalResponse.ok) {
+        return {posts: getPostsFromPayload(globalResponse.data)};
+    }
+    if (options.useSearchMentions) {
+        return {posts: [], error: globalResponse.error};
+    }
+
+    const teamIds = await getTeamIds(params.serverId);
+    const postsById = new Map<string, Record<string, unknown>>();
+    const responses = await Promise.all(teamIds.map((teamId) => (
+        postServerJSON(
+            params.serverId,
+            `/api/v4/teams/${encodeURIComponent(teamId)}/posts/search`,
+            body,
+        )
+    )));
+    responses.forEach((response) => {
+        if (!response.ok) {
+            return;
+        }
+
+        getPostsFromPayload(response.data).forEach((post) => {
+            const postId = String(post.id || '');
+            if (postId) {
+                postsById.set(postId, post);
+            }
+        });
+    });
+
+    const posts = Array.from(postsById.values());
+    const error = globalResponse.error || responses.find((response) => response.error)?.error;
+    if (!posts.length && error) {
+        return {posts: [], error};
+    }
+
+    return {posts};
+}
+
+async function loadChannelsById(serverId: string): Promise<Map<string, ChannelRecord>> {
+    const channelsById = new Map<string, ChannelRecord>();
+    const channelsResponse = await fetchServerJSONCached(serverId, '/api/v4/users/me/channels');
+    if (!channelsResponse.ok || !Array.isArray(channelsResponse.data)) {
+        return channelsById;
+    }
+
+    channelsResponse.data.
+        filter((entry): entry is Record<string, unknown> => Boolean(entry && typeof entry === 'object')).
+        forEach((entry) => {
+            const channelId = String(entry.id || '');
+            if (!channelId) {
+                return;
+            }
+            channelsById.set(channelId, {
+                id: channelId,
+                display_name: String(entry.display_name || ''),
+                name: String(entry.name || ''),
+                type: String(entry.type || ''),
+            });
+        });
+
+    return channelsById;
 }
 
 function extractMentionPreview(post: Record<string, unknown>): string {
@@ -116,26 +297,29 @@ function normalizeMention(serverId: string, userId: string, post: Record<string,
     };
 }
 
-async function fetchMentionPostsFromUnread(params: AdapterFetchParams): Promise<ActivityItem[]> {
+async function fetchMentionPosts(params: AdapterFetchParams): Promise<{items: ActivityItem[]; error?: string}> {
     if (!params.userId) {
-        return [];
+        return {items: []};
     }
 
-    const snapshot = await getUnreadActivitySnapshot(params);
-    if (!snapshot.ok) {
-        return [];
-    }
-    const {mentionChannelIds: channelIds, postsByChannelId, channelsById} = snapshot.data;
-    console.info('[MentionsAdapter] unread channel ids', {
-        total: channelIds.length,
-        sample: channelIds.slice(0, 5),
-    });
-    if (!channelIds.length) {
-        return [];
+    let searchResult = await searchMentionPosts(params, {useSearchMentions: true, terms: ''});
+    if (!searchResult.posts.length) {
+        const userResponse = await fetchServerJSONCached(params.serverId, `/api/v4/users/${encodeURIComponent(params.userId)}`);
+        let user: UserRecord | undefined;
+        if (userResponse.ok && userResponse.data && typeof userResponse.data === 'object') {
+            user = userResponse.data as UserRecord;
+        }
+        if (user) {
+            searchResult = await searchFallbackMentionPosts(params, user);
+        }
     }
 
-    const posts = channelIds.flatMap((channelId) => postsByChannelId.get(channelId) || []);
+    const {posts, error} = searchResult;
+    if (!posts.length) {
+        return {items: [], error};
+    }
 
+    const channelsById = await loadChannelsById(params.serverId);
     const actorIds = Array.from(new Set(posts.map((post) => String(post.user_id || '')).filter(Boolean)));
     const userMap = new Map<string, UserRecord>();
     const mentionNameCache = new Map<string, string | null>();
@@ -179,7 +363,7 @@ async function fetchMentionPostsFromUnread(params: AdapterFetchParams): Promise<
             return normalized;
         }));
 
-    return normalizedItems.
+    const items = normalizedItems.
         filter((item) => {
             if (!item.postId || seen.has(item.postId)) {
                 return false;
@@ -190,17 +374,21 @@ async function fetchMentionPostsFromUnread(params: AdapterFetchParams): Promise<
         filter((item) => item.actorUserId !== params.userId).
         filter((item) => item.eventTs >= params.sinceMs).
         filter((item) => !params.beforeMs || item.eventTs < params.beforeMs);
+
+    return {items, error};
 }
 
 export class MentionsAdapter implements ActivitySourceAdapter {
     kind: AdapterFetchResult['kind'] = 'mention';
 
     async fetch(params: AdapterFetchParams): Promise<AdapterFetchResult> {
-        const items = await fetchMentionPostsFromUnread(params);
+        const {items, error} = await fetchMentionPosts(params);
+        const perPage = Math.max(10, Math.min(params.pageSize, 100));
         return {
             kind: this.kind,
             items,
-            nextCursor: undefined,
+            nextCursor: items.length >= perPage ? String(params.page + 1) : undefined,
+            error,
         };
     }
 }
