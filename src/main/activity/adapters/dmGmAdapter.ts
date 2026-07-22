@@ -5,11 +5,15 @@ import type {ActivityItem} from 'common/activity/types';
 
 import type {ActivitySourceAdapter, AdapterFetchParams, AdapterFetchResult} from './types';
 
-import {getCurrentUserUsername, replaceMentionUsernamesWithDisplayNames} from '../mentionDisplay';
 import {fetchServerJSON, getUserAvatarURL} from '../activityAPI';
+import {forEachWithConcurrency} from '../concurrency';
+import {getCurrentUserUsername} from '../mentionDisplay';
 
 // Feature toggle: hide own DM/GM messages from Activity feed.
 const HIDE_MESSAGES_FROM_ME = true;
+const MAX_DM_GM_CHANNELS_PER_REFRESH = 10;
+const MAX_DM_GM_POSTS_PER_CHANNEL = 5;
+const DM_GM_FETCH_CONCURRENCY = 4;
 const HIDDEN_DM_SYSTEM_MESSAGE_PATTERNS = [
     /\bmarked\b.*\bas complete\b/i,
 ];
@@ -51,6 +55,14 @@ function isHiddenReminderCompletionDMMessage(post: PostRecord, channelType: stri
     return HIDDEN_DM_SYSTEM_MESSAGE_PATTERNS.some((pattern) => pattern.test(normalizedMessage));
 }
 
+function getChannelActivityTs(channel: ChannelRecord): number {
+    return Number(channel.last_post_at || channel.update_at || 0);
+}
+
+function getPostActivityTs(post: PostRecord): number {
+    return Number(post.create_at || post.update_at || 0);
+}
+
 function formatPersonName(user?: UserRecord): string {
     if (!user) {
         return '';
@@ -59,10 +71,6 @@ function formatPersonName(user?: UserRecord): string {
     const fullName = `${user.first_name || ''} ${user.last_name || ''}`.trim();
     return fullName || user.username || '';
 }
-
-type ChannelMemberRecord = {
-    user_id?: string;
-};
 
 type NormalizedChannelPostActivityParams = {
     serverId: string;
@@ -74,24 +82,26 @@ type NormalizedChannelPostActivityParams = {
     participantNames: string[];
 };
 
-async function fetchUserById(serverId: string, userId: string, userCache: Map<string, UserRecord | null>) {
+async function fetchUserById(serverId: string, userId: string, userCache: Map<string, Promise<UserRecord | null>>) {
     if (!userId) {
         return null;
     }
 
-    if (userCache.has(userId)) {
-        return userCache.get(userId) || null;
+    const cached = userCache.get(userId);
+    if (cached) {
+        return cached;
     }
 
-    const response = await fetchServerJSON(serverId, `/api/v4/users/${userId}`);
-    if (!response.ok || !response.data || typeof response.data !== 'object') {
-        userCache.set(userId, null);
-        return null;
-    }
+    const request = (async () => {
+        const response = await fetchServerJSON(serverId, `/api/v4/users/${userId}`);
+        if (!response.ok || !response.data || typeof response.data !== 'object') {
+            return null;
+        }
 
-    const user = response.data as UserRecord;
-    userCache.set(userId, user);
-    return user;
+        return response.data as UserRecord;
+    })();
+    userCache.set(userId, request);
+    return request;
 }
 
 async function fetchChannelPosts(serverId: string, channelId: string, page: number, perPage: number) {
@@ -108,18 +118,6 @@ async function fetchChannelPosts(serverId: string, channelId: string, page: numb
         filter((post): post is PostRecord => Boolean(post && typeof post === 'object')).
         map((post) => ({...post, id: String(post.id || '')})).
         filter((post) => Boolean(post.id));
-}
-
-async function fetchChannelMemberIds(serverId: string, channelId: string) {
-    const response = await fetchServerJSON(serverId, `/api/v4/channels/${channelId}/members`);
-    if (!response.ok || !Array.isArray(response.data)) {
-        return [];
-    }
-
-    return response.data.
-        filter((member): member is ChannelMemberRecord => Boolean(member && typeof member === 'object')).
-        map((member) => String(member.user_id || '')).
-        filter(Boolean);
 }
 
 function normalizeChannelPostActivity({
@@ -183,64 +181,55 @@ export class DMGMAdapter implements ActivitySourceAdapter {
         const channels = Array.isArray(response.data) ? response.data : [];
         const records = channels.filter((channel): channel is ChannelRecord => {
             return Boolean(channel && typeof channel === 'object' && (channel as ChannelRecord).id && (channel as ChannelRecord).type);
-        });
+        }).
+            filter((channel) => channel.type === 'D' || channel.type === 'G').
+            filter((channel) => getChannelActivityTs(channel) >= params.sinceMs).
+            sort((a, b) => getChannelActivityTs(b) - getChannelActivityTs(a)).
+            slice(0, MAX_DM_GM_CHANNELS_PER_REFRESH);
 
-        const userCache = new Map<string, UserRecord | null>();
-        const mentionNameCache = new Map<string, string | null>();
+        const userCache = new Map<string, Promise<UserRecord | null>>();
         const selfUsername = await getCurrentUserUsername(params.serverId, params.userId);
+        const normalizedSelfUsername = selfUsername.toLowerCase();
         const items = [] as ActivityItem[];
         let hasMore = false;
 
-        await Promise.all(records.map(async (channel) => {
-            if (channel.type !== 'D' && channel.type !== 'G') {
-                return;
-            }
-
-            const memberIds = await fetchChannelMemberIds(params.serverId, channel.id);
-            const participantIds = memberIds.filter((id) => id !== params.userId);
-            const participants = await Promise.all(participantIds.map((id) => fetchUserById(params.serverId, id, userCache)));
-            const participantNames = participants.map((user) => formatPersonName(user || undefined)).filter(Boolean);
-            const posts = await fetchChannelPosts(params.serverId, channel.id, params.page, params.pageSize);
-            if (posts.length >= params.pageSize) {
+        await forEachWithConcurrency(records, DM_GM_FETCH_CONCURRENCY, async (channel) => {
+            const postsPerChannel = Math.min(params.pageSize, MAX_DM_GM_POSTS_PER_CHANNEL);
+            const posts = await fetchChannelPosts(params.serverId, channel.id, params.page, postsPerChannel);
+            if (posts.length >= postsPerChannel) {
                 hasMore = true;
             }
 
-            await Promise.all(posts.map(async (post) => {
-                if (HIDE_MESSAGES_FROM_ME && post.user_id === params.userId) {
-                    return;
-                }
-                if (isHiddenReminderCompletionDMMessage(post, channel.type)) {
-                    return;
-                }
+            const relevantPosts = posts.
+                filter((post) => getPostActivityTs(post) >= params.sinceMs).
+                filter((post) => !params.beforeMs || getPostActivityTs(post) < params.beforeMs).
+                filter((post) => !HIDE_MESSAGES_FROM_ME || post.user_id !== params.userId).
+                filter((post) => !isHiddenReminderCompletionDMMessage(post, channel.type));
+            if (!relevantPosts.length) {
+                return;
+            }
 
-                const mentionRender = await replaceMentionUsernamesWithDisplayNames(
-                    params.serverId,
-                    post.message || '',
-                    mentionNameCache,
-                    selfUsername,
-                );
+            await Promise.all(relevantPosts.map(async (post) => {
                 const actor = post.user_id ? await fetchUserById(params.serverId, post.user_id, userCache) : null;
                 const actorName = formatPersonName(actor || undefined);
+                const message = post.message || '';
                 const normalizedItem = normalizeChannelPostActivity({
                     serverId: params.serverId,
                     userId: params.userId,
                     channel,
                     kind: channel.type === 'D' ? 'dm' : 'gm',
-                    post: {
-                        ...post,
-                        message: mentionRender.text,
-                    },
+                    post,
                     actorName,
-                    participantNames,
+                    participantNames: [],
                 });
                 normalizedItem.sourceRef = {
                     ...(normalizedItem.sourceRef || {}),
-                    personalMention: mentionRender.hasPersonalMention ? 'true' : '',
-                    broadcastMention: mentionRender.hasBroadcastMention ? 'true' : '',
+                    personalMention: normalizedSelfUsername && message.toLowerCase().includes(`@${normalizedSelfUsername}`) ? 'true' : '',
+                    broadcastMention: (/(^|[\s(])@(here|all|channel)\b/i).test(message) ? 'true' : '',
                 };
                 items.push(normalizedItem);
             }));
-        }));
+        });
 
         const filteredItems = items.
             filter((item) => item.eventTs >= params.sinceMs).

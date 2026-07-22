@@ -151,9 +151,9 @@ export class ActivityAggregationService implements ActivityAggregationServiceCon
         const nowMs = context.nowMs || Date.now();
         const pageSize = context.pageSize || DEFAULT_PAGE_SIZE;
         const userId = await this.resolveUserId(context);
-        const sinceMs = 0;
-        const beforeMs = undefined;
         const visibleSinceMs = resolveVisibleSince(mode, nowMs, state);
+        const sinceMs = visibleSinceMs;
+        const beforeMs = undefined;
         const errors: ActivityPage['errors'] = [];
         const adapterStatsMap = new Map<ActivityEventKind, {source: ActivityEventKind; count: number; error?: string}>();
 
@@ -181,15 +181,6 @@ export class ActivityAggregationService implements ActivityAggregationServiceCon
             const runs = adapters.map(async (adapter) => {
                 const cursor = cursorMap[adapter.kind];
                 const page = parsePage(cursor);
-                if (adapter.kind === 'mention') {
-                    console.info('[ActivityAggregationService] invoking mentions adapter', {
-                        serverId: context.serverId,
-                        mode,
-                        page,
-                        pageSize,
-                        hasUserId: Boolean(userId),
-                    });
-                }
                 const result = await adapter.fetch({
                     serverId: context.serverId,
                     userId,
@@ -238,6 +229,8 @@ export class ActivityAggregationService implements ActivityAggregationServiceCon
                 break;
             }
 
+            // Adapter cursors from one round are required to construct the next round.
+            // eslint-disable-next-line no-await-in-loop
             const round = await runAdapters(activeAdapters, cursorMap);
             const nextMerged = mode === 'older' && state ? mergeActivityItems(merged, round.items) : dedupeActivityItems([...merged, ...round.items]);
             const newlyAdded = Math.max(0, nextMerged.length - merged.length);

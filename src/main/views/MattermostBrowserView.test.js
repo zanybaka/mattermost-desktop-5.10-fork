@@ -258,7 +258,10 @@ describe('main/views/MattermostBrowserView', () => {
     });
 
     describe('loadSuccess', () => {
-        const window = {on: jest.fn()};
+        const window = {
+            on: jest.fn(),
+            getContentBounds: jest.fn(() => ({width: 1280, height: 720})),
+        };
         const mattermostView = new MattermostBrowserView(view, {}, {});
 
         beforeEach(() => {
@@ -286,7 +289,13 @@ describe('main/views/MattermostBrowserView', () => {
     });
 
     describe('show', () => {
-        const window = {addBrowserView: jest.fn(), removeBrowserView: jest.fn(), on: jest.fn(), setTopBrowserView: jest.fn()};
+        const window = {
+            addBrowserView: jest.fn(),
+            removeBrowserView: jest.fn(),
+            on: jest.fn(),
+            setTopBrowserView: jest.fn(),
+            getContentBounds: jest.fn(() => ({width: 1280, height: 720})),
+        };
         const mattermostView = new MattermostBrowserView(view, {}, {});
 
         beforeEach(() => {
@@ -424,7 +433,10 @@ describe('main/views/MattermostBrowserView', () => {
     });
 
     describe('handleDidNavigate', () => {
-        const window = {on: jest.fn()};
+        const window = {
+            on: jest.fn(),
+            getContentBounds: jest.fn(() => ({width: 1280, height: 720})),
+        };
         const mattermostView = new MattermostBrowserView(view, {}, {});
 
         beforeEach(() => {

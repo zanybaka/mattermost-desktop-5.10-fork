@@ -7,7 +7,7 @@ import {net, session} from 'electron';
 
 import {getServerAPI} from './serverAPI';
 
-const validURL = 'http://server-1.com/api/endpoint';
+const validURL = new URL('http://server-1.com/api/endpoint');
 const testData = {
     name: 'some data',
     value: 'some more data',
@@ -26,7 +26,7 @@ jest.mock('electron', () => ({
                             responseCallback();
                         }
                     }),
-                    statusCode: url === validURL ? 200 : 404,
+                    statusCode: url === 'http://server-1.com/api/endpoint' ? 200 : 404,
                 });
             }),
             end: jest.fn(),
@@ -75,7 +75,7 @@ describe('main/server/serverAPI', () => {
                             responseCallback();
                         }
                     }),
-                    statusCode: url === validURL ? 200 : 404,
+                    statusCode: url === 'http://server-1.com/api/endpoint' ? 200 : 404,
                 });
             }),
             end: jest.fn(),
@@ -150,7 +150,7 @@ describe('main/server/serverAPI', () => {
     it('should do nothing when some cookies are missing for authenticated request', async () => {
         session.defaultSession.cookies.get.mockImplementation(() => ([
             {
-                domain: 'http://server-1.com',
+                domain: 'server-1.com',
                 name: 'MMUSERID',
             },
         ]));
@@ -166,15 +166,15 @@ describe('main/server/serverAPI', () => {
     it('should continue when all cookies are present', async () => {
         session.defaultSession.cookies.get.mockImplementation(() => ([
             {
-                domain: 'http://server-1.com',
+                domain: 'server-1.com',
                 name: 'MMUSERID',
             },
             {
-                domain: 'http://server-1.com',
+                domain: 'server-1.com',
                 name: 'MMCSRF',
             },
             {
-                domain: 'http://server-1.com',
+                domain: 'server-1.com',
                 name: 'MMAUTHTOKEN',
             },
         ]));

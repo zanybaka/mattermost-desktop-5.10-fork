@@ -110,13 +110,13 @@ describe('main/performanceMonitor', () => {
         listeners.get('unlock-screen')();
         expect(setInterval).toHaveBeenCalled();
 
-        listeners.get('speed-limit-change')(50);
+        listeners.get('speed-limit-change')({limit: 50});
         expect(clearInterval).toHaveBeenCalled();
 
         setInterval.mockClear();
         clearInterval.mockClear();
 
-        listeners.get('speed-limit-change')(100);
+        listeners.get('speed-limit-change')({limit: 100});
         expect(setInterval).toHaveBeenCalled();
     });
 

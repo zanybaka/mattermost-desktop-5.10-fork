@@ -12,6 +12,8 @@ jest.mock('electron', () => ({
             wasOpenedAsHidden: true,
         }),
         getAppPath: () => '/path/to/app',
+        getVersion: () => '5.10.2',
+        userAgentFallback: 'Mozilla/5.0 Electron/38.2.0 Mattermost/5.10.2',
     },
 }));
 
@@ -88,6 +90,23 @@ describe('main/utils', () => {
 
         it('should not have back bar for regular login', () => {
             expect(Utils.shouldHaveBackBar(new URL('https://server-1.com'), new URL('https://server-1.com/login'))).toBe(false);
+        });
+    });
+
+    describe('composeUserAgent', () => {
+        it('uses the supported Time identity for the Time server', () => {
+            expect(Utils.composeUserAgent(false, new URL('https://shmitter.ati.st/atisu'))).
+                toBe('Mozilla/5.0 Electron/38.2.0 Time/5.28.0');
+        });
+
+        it('keeps the actual Mattermost identity for other servers', () => {
+            expect(Utils.composeUserAgent(false, new URL('https://community.mattermost.com'))).
+                toBe('Mozilla/5.0 Electron/38.2.0 Mattermost/5.10.2');
+        });
+
+        it('omits desktop identity in browser mode', () => {
+            expect(Utils.composeUserAgent(true, new URL('https://shmitter.ati.st'))).
+                toBe('Mozilla/5.0 Electron/38.2.0');
         });
     });
 

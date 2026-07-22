@@ -145,18 +145,23 @@ export class MattermostBrowserView extends EventEmitter {
             body: method === 'POST' ? JSON.stringify(body) : undefined,
         };
         const result = await this.browserView.webContents.executeJavaScript(
-            `fetch(${JSON.stringify(url)}, ${JSON.stringify(options)})
-                .then(async (response) => ({
-                    ok: response.ok,
-                    status: response.status,
-                    text: await response.text(),
-                }))
-                .catch((error) => ({
-                    ok: false,
-                    status: 0,
-                    text: '',
-                    error: error instanceof Error ? error.message : String(error),
-                }))`,
+            `(() => {
+                const controller = new AbortController();
+                const timeout = setTimeout(() => controller.abort(), 5000);
+                return fetch(${JSON.stringify(url)}, {...${JSON.stringify(options)}, signal: controller.signal})
+                    .then(async (response) => ({
+                        ok: response.ok,
+                        status: response.status,
+                        text: await response.text(),
+                    }))
+                    .catch((error) => ({
+                        ok: false,
+                        status: 0,
+                        text: '',
+                        error: error?.name === 'AbortError' ? 'request timed out' : error instanceof Error ? error.message : String(error),
+                    }))
+                    .finally(() => clearTimeout(timeout));
+            })()`,
             true,
         ) as {ok: boolean; status: number; text: string; error?: string};
 
@@ -250,7 +255,9 @@ export class MattermostBrowserView extends EventEmitter {
         } else {
             performanceMonitor.registerView(`Server ${this.browserView.webContents.id}`, this.browserView.webContents, this.view.server.id);
         }
-        const loading = this.browserView.webContents.loadURL(loadURL, {userAgent: composeUserAgent(DeveloperMode.get('browserOnly'))});
+        const loading = this.browserView.webContents.loadURL(loadURL, {
+            userAgent: composeUserAgent(DeveloperMode.get('browserOnly'), this.view.server.url),
+        });
         loading.then(this.loadSuccess(loadURL)).catch((err) => {
             if (err.code && err.code.startsWith('ERR_CERT')) {
                 MainWindow.sendToRenderer(LOAD_FAILED, this.id, err.toString(), loadURL.toString());
@@ -505,7 +512,9 @@ export class MattermostBrowserView extends EventEmitter {
             if (!this.browserView || !this.browserView.webContents) {
                 return;
             }
-            const loading = this.browserView.webContents.loadURL(loadURL, {userAgent: composeUserAgent(DeveloperMode.get('browserOnly'))});
+            const loading = this.browserView.webContents.loadURL(loadURL, {
+                userAgent: composeUserAgent(DeveloperMode.get('browserOnly'), this.view.server.url),
+            });
             loading.then(this.loadSuccess(loadURL)).catch((err) => {
                 if (this.maxRetries-- > 0) {
                     this.loadRetry(loadURL, err);

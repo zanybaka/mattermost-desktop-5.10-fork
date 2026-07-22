@@ -1,7 +1,7 @@
 // Copyright (c) 2016-present Mattermost, Inc. All Rights Reserved.
 // See LICENSE.txt for license information.
 
-import {app, ipcMain, type IpcMainEvent, powerMonitor, type WebContents} from 'electron';
+import {app, type Event as ElectronEvent, ipcMain, type IpcMainEvent, powerMonitor, type PowerMonitorSpeedLimitChangeEventParams, type WebContents} from 'electron';
 
 import {EMIT_CONFIGURATION, METRICS_RECEIVE, METRICS_REQUEST, METRICS_SEND} from 'common/communication';
 import Config from 'common/config';
@@ -164,8 +164,8 @@ export class PerformanceMonitor {
         }
     };
 
-    private handleSpeedLimitChange = (limit: number) => {
-        if (limit < 100) {
+    private handleSpeedLimitChange = (event: ElectronEvent<PowerMonitorSpeedLimitChangeEventParams>) => {
+        if (event.limit < 100) {
             this.stop();
         } else {
             this.start();

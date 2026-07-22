@@ -177,7 +177,7 @@ export class CallsWidgetWindow {
         }
         performanceMonitor.registerView('CallsWidgetWindow', this.win.webContents);
         this.win?.loadURL(widgetURL, {
-            userAgent: composeUserAgent(),
+            userAgent: composeUserAgent(false, this.mainView?.view?.server.url),
         }).catch((reason) => {
             log.error(`failed to load: ${reason}`);
         });
@@ -328,7 +328,7 @@ export class CallsWidgetWindow {
 
             try {
                 await this.popOut?.loadURL(url, {
-                    userAgent: composeUserAgent(),
+                    userAgent: composeUserAgent(false, this.mainView?.view?.server.url),
                 });
             } catch (e) {
                 log.error('did-frame-finish-load, failed to reload with correct userAgent', e);

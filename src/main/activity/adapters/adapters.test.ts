@@ -240,15 +240,190 @@ describe('activity adapters', () => {
         expect(result.items[0].eventTs).toBe(100);
     });
 
-    test('reactions adapter maps reactions', async () => {
+    test('reactions adapter maps reactions from own-post search', async () => {
+        jest.mocked(postServerJSON).mockImplementation(async (_serverId: string, endpoint: string, body: unknown) => {
+            if (endpoint === '/api/v4/posts/search') {
+                const terms = String((body as Record<string, unknown>).terms || '');
+                expect(terms).toContain('from:user-1');
+                expect(terms).toContain('after:');
+                return {
+                    ok: true,
+                    data: {
+                        order: ['p1'],
+                        posts: {
+                            p1: {
+                                id: 'p1',
+                                user_id: 'user-1',
+                                channel_id: 'c1',
+                                create_at: 10,
+                                metadata: {
+                                    reactions: [{
+                                        post_id: 'p1',
+                                        create_at: 20,
+                                        user_id: 'u2',
+                                        emoji_name: 'smile',
+                                    }],
+                                },
+                            },
+                        },
+                    },
+                };
+            }
+            return {ok: true, data: {order: [], posts: {}}};
+        });
+
         const result = await new ReactionsAdapter().fetch(defaultParams);
         expect(result.items[0].eventKind).toBe('reaction');
         expect(result.items[0].previewText).toContain('😄');
+        expect(result.items[0].postId).toBe('p1');
+        expect(jest.mocked(fetchServerJSON).mock.calls.some((call) => String(call[1]).includes('/posts/unread'))).toBe(false);
+    });
+
+    test('reactions adapter excludes self reactions and keeps all newest-first', async () => {
+        const reactions = Array.from({length: 35}, (_, index) => ({
+            post_id: 'p1',
+            create_at: 100 + index,
+            user_id: index === 0 ? 'user-1' : `actor-${index}`,
+            emoji_name: 'smile',
+        }));
+
+        jest.mocked(postServerJSON).mockImplementation(async (_serverId: string, endpoint: string) => {
+            if (endpoint === '/api/v4/posts/search') {
+                return {
+                    ok: true,
+                    data: {
+                        order: ['p1'],
+                        posts: {
+                            p1: {
+                                id: 'p1',
+                                user_id: 'user-1',
+                                channel_id: 'c1',
+                                create_at: 10,
+                                metadata: {reactions},
+                            },
+                        },
+                    },
+                };
+            }
+            return {ok: true, data: {order: [], posts: {}}};
+        });
+
+        const result = await new ReactionsAdapter().fetch(defaultParams);
+        expect(result.items).toHaveLength(34);
+        expect(result.items.every((item) => item.actorUserId !== 'user-1')).toBe(true);
+        expect(result.items[0].eventTs).toBe(134);
+        expect(result.items[33].eventTs).toBe(101);
+    });
+
+    test('reactions adapter paginates own-post search until pages end', async () => {
+        jest.mocked(postServerJSON).mockImplementation(async (_serverId: string, endpoint: string, body: unknown) => {
+            if (endpoint !== '/api/v4/posts/search') {
+                return {ok: true, data: {order: [], posts: {}}};
+            }
+
+            const page = Number((body as Record<string, unknown>).page || 0);
+            if (page === 0) {
+                const order = Array.from({length: 100}, (_, index) => `p${index}`);
+                const posts = Object.fromEntries(order.map((id) => [id, {
+                    id,
+                    user_id: 'user-1',
+                    channel_id: 'c1',
+                    create_at: 10,
+                    metadata: {reactions: []},
+                }]));
+                return {ok: true, data: {order, posts}};
+            }
+
+            return {
+                ok: true,
+                data: {
+                    order: ['p-final'],
+                    posts: {
+                        'p-final': {
+                            id: 'p-final',
+                            user_id: 'user-1',
+                            channel_id: 'c1',
+                            create_at: 10,
+                            metadata: {
+                                reactions: [{
+                                    post_id: 'p-final',
+                                    create_at: 50,
+                                    user_id: 'u2',
+                                    emoji_name: 'smile',
+                                }],
+                            },
+                        },
+                    },
+                },
+            };
+        });
+
+        const result = await new ReactionsAdapter().fetch(defaultParams);
+        expect(result.items.map((item) => item.postId)).toEqual(['p-final']);
+        expect(jest.mocked(postServerJSON).mock.calls.filter((call) => call[1] === '/api/v4/posts/search')).toHaveLength(2);
     });
 
     test('dmgm adapter maps private channels', async () => {
         const result = await new DMGMAdapter().fetch(defaultParams);
         expect(result.items.map((item) => item.eventKind)).toEqual(['dm', 'gm']);
+        expect(jest.mocked(fetchServerJSON).mock.calls.filter((call) => call[1] === '/api/v4/users/u2')).toHaveLength(1);
+    });
+
+    test('dmgm adapter only fetches channels active in the visible window', async () => {
+        jest.mocked(fetchServerJSON).mockImplementation(async (_serverId: string, endpoint: string) => {
+            if (endpoint === '/api/v4/users/me/channels') {
+                return {
+                    ok: true,
+                    data: [
+                        {id: 'd-old', type: 'D', last_post_at: 50},
+                        {id: 'd-new', type: 'D', last_post_at: 150},
+                    ],
+                };
+            }
+            if (endpoint.startsWith('/api/v4/channels/d-new/posts')) {
+                return {
+                    ok: true,
+                    data: {
+                        order: ['p-new'],
+                        posts: {
+                            'p-new': {id: 'p-new', user_id: 'u2', message: 'recent', create_at: 150},
+                        },
+                    },
+                };
+            }
+            if (endpoint === '/api/v4/channels/d-new/members') {
+                return {ok: true, data: [{user_id: 'u2'}, {user_id: 'user-1'}]};
+            }
+            return mockAPI(endpoint);
+        });
+
+        const result = await new DMGMAdapter().fetch({...defaultParams, sinceMs: 100});
+
+        expect(result.items.map((item) => item.postId)).toEqual(['p-new']);
+        expect(jest.mocked(fetchServerJSON).mock.calls.some((call) => String(call[1]).includes('d-old'))).toBe(false);
+    });
+
+    test('dmgm adapter does not resolve broadcast mentions as usernames', async () => {
+        jest.mocked(fetchServerJSON).mockImplementation(async (_serverId: string, endpoint: string) => {
+            if (endpoint.startsWith('/api/v4/channels/d1/posts')) {
+                return {
+                    ok: true,
+                    data: {
+                        order: ['dp1'],
+                        posts: {
+                            dp1: {id: 'dp1', user_id: 'u2', message: '@channel update', create_at: 10},
+                        },
+                    },
+                };
+            }
+            return mockAPI(endpoint);
+        });
+
+        await new DMGMAdapter().fetch(defaultParams);
+
+        expect(jest.mocked(fetchServerJSONCached).mock.calls.some((call) => (
+            call[1] === '/api/v4/users/username/channel'
+        ))).toBe(false);
     });
 
     test('dmgm adapter hides reminder completion dm system messages by pattern', async () => {

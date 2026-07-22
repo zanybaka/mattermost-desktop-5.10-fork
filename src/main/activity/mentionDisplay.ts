@@ -10,6 +10,7 @@ type UserRecord = {
 };
 
 const USERNAME_DISPLAY_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+const BROADCAST_MENTION_KEYS = new Set(['all', 'channel', 'here']);
 const usernameDisplayCache = new Map<string, {expiresAt: number; value: string | null}>();
 const usernameDisplayInFlight = new Map<string, Promise<string | null>>();
 
@@ -29,7 +30,7 @@ function extractMentionUsernames(text: string): string[] {
         usernames.add((match[2] || '').toLowerCase());
         match = regex.exec(text);
     }
-    return Array.from(usernames).filter(Boolean);
+    return Array.from(usernames).filter((username) => Boolean(username) && !BROADCAST_MENTION_KEYS.has(username));
 }
 
 async function resolveDisplayNameByUsername(serverId: string, username: string): Promise<string | null> {
@@ -89,7 +90,7 @@ export async function replaceMentionUsernamesWithDisplayNames(
     }
 
     const normalizedSelfUsername = selfUsername.trim().toLowerCase();
-    const hasBroadcastMention = /(^|[\s(])@(here|all|channel)\b/i.test(text);
+    const hasBroadcastMention = (/(^|[\s(])@(here|all|channel)\b/i).test(text);
     const usernames = extractMentionUsernames(text);
     await Promise.all(usernames.map(async (username) => {
         if (cache.has(username)) {

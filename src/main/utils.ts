@@ -16,6 +16,9 @@ import {isAdminUrl, isPluginUrl, isTeamUrl, isUrlType, parseURL} from 'common/ut
 
 import type {Args} from 'types/args';
 
+const TIME_SERVER_HOSTNAME = 'shmitter.ati.st';
+const TIME_DESKTOP_CLIENT_VERSION = '5.28.0';
+
 export function isInsideRectangle(container: Electron.Rectangle, rect: Electron.Rectangle) {
     if (container.x > rect.x) {
         return false;
@@ -88,14 +91,18 @@ export function getLocalPreload(file: string) {
     return path.join(app.getAppPath(), file);
 }
 
-export function composeUserAgent(browserMode?: boolean) {
+export function composeUserAgent(browserMode?: boolean, serverURL?: URL) {
     const baseUserAgent = app.userAgentFallback.split(' ');
 
-    // filter out the Mattermost tag that gets added earlier on
-    const filteredUserAgent = baseUserAgent.filter((ua) => !ua.startsWith('Mattermost'));
+    // Remove a previously appended desktop identity before composing a fresh one.
+    const filteredUserAgent = baseUserAgent.filter((ua) => !(/^(Mattermost|Time)\//).test(ua));
 
     if (browserMode) {
         return filteredUserAgent.join(' ');
+    }
+
+    if (serverURL?.hostname.toLowerCase() === TIME_SERVER_HOSTNAME) {
+        return `${filteredUserAgent.join(' ')} Time/${TIME_DESKTOP_CLIENT_VERSION}`;
     }
 
     return `${filteredUserAgent.join(' ')} Mattermost/${app.getVersion()}`;

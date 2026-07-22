@@ -157,7 +157,7 @@ describe('main/windows/callsWidgetWindow', () => {
     describe('close', () => {
         const callsWidgetWindow = new CallsWidgetWindow();
         callsWidgetWindow.win = {
-            on: jest.fn(),
+            once: jest.fn(),
             close: jest.fn(),
             isDestroyed: jest.fn(),
             webContents: {
@@ -167,7 +167,7 @@ describe('main/windows/callsWidgetWindow', () => {
 
         beforeEach(() => {
             let closedListener;
-            callsWidgetWindow.win.on.mockImplementation((event, listener) => {
+            callsWidgetWindow.win.once.mockImplementation((event, listener) => {
                 closedListener = listener;
             });
             callsWidgetWindow.win.close.mockImplementation(() => closedListener());
