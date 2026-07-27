@@ -1,7 +1,11 @@
 # Release workflow for fork — manual run only, creates GitHub Release with artifacts.
 # No signing (users may see "unidentified developer" on Mac / SmartScreen on Windows).
 #
-# Usage: Actions → release-fork → Run workflow, enter tag (e.g. 5.10.2-activity)
+# Usage: Actions → release-fork → Run workflow
+#   Branch: release-5.10-fork
+#   Tag: e.g. 5.10.2-activity-releaseN
+# package.json stays at 5.10.2; the tag is the public release number.
+# See README.md → GitHub Actions (release-fork) for the full merge/tag flow.
 
 name: release-fork
 

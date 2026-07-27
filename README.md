@@ -42,11 +42,34 @@ Artifacts go to `release/5.10.2/`.
 
 ### GitHub Actions (release-fork)
 
-**Manual run (test without tag):** Actions -> release-fork -> Run workflow -> enter tag (e.g. `5.10.2-activity-test`) -> Run. Builds from current branch, creates release with that tag.
+Fork releases keep `package.json` version at `5.10.2`. The public release number is the **git tag** in the form `5.10.2-activity-releaseN` (examples: `…-release6`, then `…-release7`). Check the latest tag with `git tag -l '5.10.2-activity-release*' --sort=-v:refname | head -1` and bump `N` by one. Workflow `release-fork` is **manual only** (`workflow_dispatch`); tag push does not start a build.
 
-**Release on tag push:** `git tag 5.10.2-activity && git push origin 5.10.2-activity` - workflow runs automatically and creates a release.[^2]
+**Ship a release (same flow as before):**
 
-[^2]: Release notes are in `.github/workflows/release-fork.yml` (Create release notes step). Edit the heredoc there to change the text for future releases.
+```bash
+# 1. Merge the feature/fix branch into the fork release branch
+git checkout release-5.10-fork
+git pull origin release-5.10-fork
+git merge <feature-or-fix-branch>
+# resolve conflicts if any, then:
+git push origin release-5.10-fork
+
+# 2. Tag the tip of release-5.10-fork (do not bump package.json)
+#    Replace N with the next free number after the latest 5.10.2-activity-release* tag
+git tag 5.10.2-activity-releaseN
+git push origin 5.10.2-activity-releaseN
+
+# 3. Build in GitHub Actions
+# Actions → release-fork → Run workflow
+#   Branch: release-5.10-fork
+#   Tag:    5.10.2-activity-releaseN
+```
+
+After the workflow finishes, GitHub Releases will have that tag with macOS / Windows / Linux artifacts.
+
+**Dry-run / test tag:** Actions → release-fork → Run workflow → enter any tag (e.g. `5.10.2-activity-test`) on the branch you want to build. Same workflow, no need to change `package.json`.
+
+Release notes text lives in `.github/workflows/release-fork.yml` (Create release notes step). Edit that heredoc for future releases.
 
 ### Unsigned builds
 
