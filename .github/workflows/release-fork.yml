@@ -48,6 +48,7 @@ jobs:
         with:
           name: linux
           path: build/linux
+          retention-days: 1 # intermediate hand-off to the release job; the GitHub Release keeps the files
 
   build-windows:
     runs-on: windows-2022
@@ -79,6 +80,7 @@ jobs:
         with:
           name: windows
           path: build/win
+          retention-days: 1 # intermediate hand-off to the release job; the GitHub Release keeps the files
 
   build-macos:
     runs-on: macos-14
@@ -105,6 +107,7 @@ jobs:
         with:
           name: macos
           path: build/macos
+          retention-days: 1 # intermediate hand-off to the release job; the GitHub Release keeps the files
 
   release:
     runs-on: ubuntu-22.04
